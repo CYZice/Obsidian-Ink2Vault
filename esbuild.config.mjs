@@ -1,6 +1,6 @@
+import builtins from "builtin-modules";
 import esbuild from "esbuild";
 import process from "process";
-import builtins from "builtin-modules";
 
 const prod = (process.argv[2] === "production");
 
@@ -10,6 +10,7 @@ const context = await esbuild.context({
     external: [
         "obsidian",
         "electron",
+        "pdfjs-dist",
         ...builtins
     ],
     format: "cjs",

@@ -4,7 +4,7 @@ import { ConversionService } from "./conversion-service";
 import { DEFAULT_SETTINGS } from "./defaults";
 import { AIService } from "./services/ai-service";
 import type { PluginSettings } from "./types";
-import { ModernSettingsTab } from "./ui/modern-settings-tab";
+import { SimpleSettingsTab } from "./ui/simple-settings-tab";
 import { PDFProcessor } from "./utils/pdf-processor";
 
 export default class HandMarkdownAIPlugin extends Plugin {
@@ -17,13 +17,13 @@ export default class HandMarkdownAIPlugin extends Plugin {
 
         await this.loadSettings();
 
-        // 初始化 PDF Worker
+        // 初始化 PDF Worker (Obsidian 内置)
         PDFProcessor.initWorker();
 
         this.aiService = new AIService(this.settings, this.app);
         this.conversionService = new ConversionService(this.app, this.settings);
 
-        this.addSettingTab(new ModernSettingsTab(this.app, this));
+        this.addSettingTab(new SimpleSettingsTab(this.app, this));
 
         this.registerCommands();
 

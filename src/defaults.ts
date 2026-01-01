@@ -1,9 +1,6 @@
 import { MODEL_CATEGORIES } from "./constants";
 import type { PluginSettings } from "./types";
 
-/**
- * 默认插件设置
- */
 export const DEFAULT_SETTINGS: PluginSettings = {
     providers: {
         openai: {
@@ -64,12 +61,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     },
 
     currentModel: "gemini-3-flash-preview",
-    timeout: 30000,
-    enableRightClick: true,
-    enableAtTrigger: true,
     maxTokens: 5000,
-    maxContextLines: 20,
-    maxContextChars: 3000,
     conversionPrompt: undefined,
 
     outputSettings: {
@@ -81,33 +73,17 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 
     advancedSettings: {
         timeout: 30000,
-        maxRetries: 3,
-        verboseLogging: false,
-        useStreaming: false
+        pdfQuality: 0.8,
+        pdfScale: 1.5
     },
 
-    globalRules: [],
-    ruleTemplates: [],
-    enableGlobalRules: true,
-
-    // API密钥获取链接
     apiKeyLinks: {
         openai: "https://platform.openai.com/api-keys",
         anthropic: "https://console.anthropic.com/",
         gemini: "https://aistudio.google.com/app/apikey",
         ollama: "https://ollama.com/"
-    },
-
-    // 常用提示词
-    commonPrompts: [
-        { id: "expand", name: "扩展内容", content: "请扩展这段内容，增加更多细节和例子" },
-        { id: "summarize", name: "总结概括", content: "请总结这段内容的要点" },
-        { id: "improve", name: "改进文本", content: "请改进这段文本的表达和逻辑" },
-        { id: "translate", name: "翻译", content: "请将这段内容翻译成英文" },
-        { id: "continue", name: "继续写作", content: "请根据上下文继续写作，保持风格一致" }
-    ]
-}
-
+    }
+};
 
 /**
  * 默认转换提示词（来自noted.md）

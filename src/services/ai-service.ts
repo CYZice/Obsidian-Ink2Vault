@@ -143,17 +143,6 @@ export class AIService {
 
         let systemPrompt = SYSTEM_PROMPTS[mode] || "";
 
-        if (this.settings.enableGlobalRules && this.settings.globalRules && this.settings.globalRules.length > 0) {
-            const enabledRules = this.settings.globalRules
-                .filter((rule: any) => rule.enabled !== false)
-                .sort((a: any, b: any) => (b.priority || 0) - (a.priority || 0));
-
-            if (enabledRules.length > 0) {
-                const rulesText = enabledRules.map((rule: any) => rule.content).join("\n");
-                systemPrompt += "\n\n全局规则（请严格遵循以下规则）：\n" + rulesText;
-            }
-        }
-
         let userPrompt = "";
         if (mode === "continue") {
             if (context.selectedText && context.selectedText.trim()) {
@@ -532,7 +521,8 @@ export class AIService {
 
     async convertFile(
         fileData: FileData,
-        prompt?: string
+        prompt?: string,
+        onStream?: (data: { content: string; isComplete: boolean }) => void
     ): Promise<ConversionResult> {
         const startTime = Date.now();
 
@@ -592,6 +582,12 @@ export class AIService {
                 temperature: 0.3,
                 max_tokens: this.settings.maxTokens || 4096
             };
+
+            // 如果提供了 onStream 回调，启用流式输出
+            if (onStream && typeof onStream === "function") {
+                requestBody.stream = true;
+                return await this.convertFileStream(apiUrl, config, requestBody, fileData, startTime, onStream);
+            }
 
             const response = await requestUrl({
                 url: apiUrl,
@@ -667,6 +663,87 @@ export class AIService {
                 success: false,
                 error: errorMessage
             };
+        }
+    }
+
+    /**
+     * 流式转换文件（实时返回内容）
+     */
+    private async convertFileStream(
+        apiUrl: string,
+        config: APIModelConfig,
+        requestBody: Record<string, unknown>,
+        fileData: FileData,
+        startTime: number,
+        onStream: (data: { content: string; isComplete: boolean }) => void
+    ): Promise<ConversionResult> {
+        try {
+            const response = await fetch(apiUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${config.apiKey}`
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                if (response.status === 429) {
+                    throw new Error(errorText.includes("quota") ? "API配额已用完" : "API请求频率过高");
+                }
+                throw new Error(`API请求失败: ${response.status} ${errorText}`);
+            }
+
+            const reader = response.body!.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let streamedContent = "";
+
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop() || "";
+
+                    for (const line of lines) {
+                        if (line.startsWith("data: ")) {
+                            const data = line.slice(6);
+                            if (data === "[DONE]") break;
+
+                            try {
+                                const parsed = JSON.parse(data);
+                                const delta = parsed.choices?.[0]?.delta;
+
+                                if (delta?.content) {
+                                    streamedContent += delta.content;
+                                    onStream({ content: streamedContent, isComplete: false });
+                                }
+                            } catch (e) {
+                                // 忽略解析错误
+                            }
+                        }
+                    }
+                }
+
+                onStream({ content: streamedContent, isComplete: true });
+
+                return {
+                    markdown: streamedContent.trim(),
+                    sourcePath: fileData.path,
+                    outputPath: "",
+                    provider: config.model,
+                    duration: Date.now() - startTime,
+                    success: true
+                };
+            } finally {
+                reader.releaseLock();
+            }
+        } catch (error) {
+            throw error;
         }
     }
 

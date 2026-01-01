@@ -104,13 +104,14 @@ export class ConversionService {
 
     /**
      * PDF 流式处理（新增）
-     * 逐页转换，及时释放内存，合并结果
+     * 逐页转换，实时写入文件
      */
     private async convertPdfStream(filePath: string, startTime: number): Promise<ConversionResult> {
-        const markdownParts: string[] = [];
         let totalPages = 0;
         let successPages = 0;
         let failedPages: number[] = [];
+        let outputFile: TFile | null = null;
+        let outputPath = "";
 
         try {
             // 1. 读取 PDF 文件
@@ -122,14 +123,35 @@ export class ConversionService {
             const arrayBuffer = await this.app.vault.readBinary(file);
 
             // 2. 获取 PDF 信息
-            const pdfInfo = await PDFProcessor.getPdfInfo(arrayBuffer);
+            const bufferForInfo = arrayBuffer.slice(0);
+            const pdfInfo = await PDFProcessor.getPdfInfo(bufferForInfo);
             totalPages = pdfInfo.numPages;
 
             new Notice(`开始处理 PDF，共 ${totalPages} 页`, 3000);
 
+            // 3. 立即创建输出文件
+            const fileName = FileProcessor.getFileName(filePath);
+            const fileData: FileData = {
+                path: filePath,
+                base64: "",
+                mimeType: "application/pdf",
+                size: 0,
+                name: fileName,
+                isPdf: true
+            };
+
+            outputPath = await this.createOutputFile(
+                fileData,
+                `# ${fileName}\n\n> 🔄 正在转换中... (0/${totalPages})\n\n`
+            );
+            outputFile = this.app.vault.getAbstractFileByPath(outputPath) as TFile;
+
+            // 4. 立即打开文件
+            await this.app.workspace.openLinkText(outputFile.path, "", true);
+
             const prompt = this.getConversionPrompt();
 
-            // 3. 流式处理每一页
+            // 5. 流式处理每一页
             await PDFProcessor.streamConvertPdfToImages(
                 arrayBuffer,
                 async (base64: string, pageNum: number) => {
@@ -147,29 +169,106 @@ export class ConversionService {
                         // 调用 AI 转换这一页
                         new Notice(`正在转换第 ${pageNum}/${totalPages} 页...`, 2000);
 
-                        const result = await this.aiService.convertFile(pageFileData, prompt);
+                        // 流式转换：实时更新文件内容
+                        let pageContent = "";
+                        const result = await this.aiService.convertFile(
+                            pageFileData,
+                            prompt,
+                            (streamData) => {
+                                // 实时更新页面内容
+                                if (streamData.content) {
+                                    pageContent = streamData.content;
 
-                        if (result.success !== false) {
-                            // 追加到 Markdown（带分隔符）
-                            if (pageNum > 1) {
-                                markdownParts.push('\n\n---\n\n');
+                                    // 构建完整页面内容
+                                    const pagePrefix = pageNum === 1
+                                        ? `## 第 ${pageNum} 页\n\n`
+                                        : `\n\n---\n\n## 第 ${pageNum} 页\n\n`;
+
+                                    // 读取当前文件内容并更新
+                                    this.app.vault.read(outputFile!).then(currentContent => {
+                                        // 移除当前正在生成的页面（如果存在）
+                                        const pageMarker = `## 第 ${pageNum} 页`;
+                                        let baseContent = currentContent;
+
+                                        const pageMarkerIndex = currentContent.indexOf(pageMarker);
+                                        if (pageMarkerIndex !== -1) {
+                                            // 找到下一页的分隔符或文件末尾
+                                            const nextPageIndex = currentContent.indexOf(`## 第 ${pageNum + 1} 页`, pageMarkerIndex);
+                                            if (nextPageIndex !== -1) {
+                                                baseContent = currentContent.substring(0, pageMarkerIndex) +
+                                                    currentContent.substring(nextPageIndex);
+                                            } else {
+                                                baseContent = currentContent.substring(0, pageMarkerIndex);
+                                            }
+                                        }
+
+                                        // 更新进度并追加新内容
+                                        const newContent = baseContent.replace(
+                                            /> 🔄 正在转换中... \(\d+\/\d+\)/,
+                                            `> 🔄 正在转换中... (第${pageNum}页 ${pageContent.length}字 / 共${totalPages}页)`
+                                        ) + pagePrefix + pageContent;
+
+                                        this.app.vault.modify(outputFile!, newContent);
+                                    });
+                                }
                             }
-                            markdownParts.push(`## 第 ${pageNum} 页\n\n${result.markdown}`);
+                        );
+
+                        // 转换完成后的最终处理
+                        const currentContent = await this.app.vault.read(outputFile!);
+
+                        let finalPageContent: string;
+                        if (result.success !== false) {
+                            finalPageContent = pageNum === 1
+                                ? `## 第 ${pageNum} 页\n\n${result.markdown}`
+                                : `\n\n---\n\n## 第 ${pageNum} 页\n\n${result.markdown}`;
                             successPages++;
                         } else {
                             failedPages.push(pageNum);
-                            markdownParts.push(
-                                `\n\n---\n\n## 第 ${pageNum} 页\n\n> [!ERROR] 转换失败: ${result.error}`
-                            );
+                            finalPageContent = pageNum === 1
+                                ? `## 第 ${pageNum} 页\n\n> [!ERROR] 转换失败: ${result.error}`
+                                : `\n\n---\n\n## 第 ${pageNum} 页\n\n> [!ERROR] 转换失败: ${result.error}`;
                         }
+
+                        // 确保最终内容正确（替换可能存在的流式内容）
+                        const pageMarker = `## 第 ${pageNum} 页`;
+                        let baseContent = currentContent;
+                        const pageMarkerIndex = currentContent.indexOf(pageMarker);
+                        if (pageMarkerIndex !== -1) {
+                            const nextPageIndex = currentContent.indexOf(`## 第 ${pageNum + 1} 页`, pageMarkerIndex);
+                            if (nextPageIndex !== -1) {
+                                baseContent = currentContent.substring(0, pageMarkerIndex) +
+                                    currentContent.substring(nextPageIndex);
+                            } else {
+                                baseContent = currentContent.substring(0, pageMarkerIndex);
+                            }
+                        }
+
+                        const finalNewContent = baseContent.replace(
+                            /> 🔄 正在转换中... .*/,
+                            `> 🔄 正在转换中... (${pageNum}/${totalPages})`
+                        ) + finalPageContent;
+
+                        // 实时写入文件
+                        await this.app.vault.modify(outputFile!, finalNewContent);
 
                     } catch (pageError) {
                         failedPages.push(pageNum);
                         const errMsg = pageError instanceof Error ? pageError.message : String(pageError);
                         console.error(`第 ${pageNum} 页转换失败:`, errMsg);
-                        markdownParts.push(
-                            `\n\n---\n\n## 第 ${pageNum} 页\n\n> [!ERROR] 转换失败: ${errMsg}`
-                        );
+
+                        // 写入错误信息
+                        const currentContent = await this.app.vault.read(outputFile!);
+                        const errorContent = pageNum === 1
+                            ? `## 第 ${pageNum} 页\n\n> [!ERROR] 转换失败: ${errMsg}`
+                            : `\n\n---\n\n## 第 ${pageNum} 页\n\n> [!ERROR] 转换失败: ${errMsg}`;
+
+                        const errorNewContent = currentContent.replace(
+                            /> 🔄 正在转换中... \(\d+\/\d+\)/,
+                            `> 🔄 正在转换中... (${pageNum}/${totalPages})`
+                        ) + errorContent;
+
+                        await this.app.vault.modify(outputFile!, errorNewContent);
                     }
                 },
                 (current: number, total: number, message: string) => {
@@ -177,34 +276,23 @@ export class ConversionService {
                     new Notice(message, 1000);
                 },
                 {
-                    scale: 1.5,
-                    quality: 0.8,
+                    scale: this.settings.advancedSettings?.pdfScale || 1.5,
+                    quality: this.settings.advancedSettings?.pdfQuality || 0.8,
                     format: 'jpeg',
-                    timeoutPerPage: this.settings.timeout || 30000,
-                    onCancel: () => false // 可以在这里实现中断逻辑
+                    timeoutPerPage: this.settings.advancedSettings?.timeout || 30000,
+                    onCancel: () => false
                 }
             );
 
-            // 4. 合并所有页面的 Markdown
-            const finalMarkdown = markdownParts.join('');
-
-            // 5. 提取文件名
-            const fileName = FileProcessor.getFileName(filePath);
-            const fileData: FileData = {
-                path: filePath,
-                base64: "",
-                mimeType: "application/pdf",
-                size: 0,
-                name: fileName,
-                isPdf: true
-            };
-
-            // 6. 保存文件
-            const outputPath = await this.saveConversionResult(
-                fileData,
-                finalMarkdown,
-                this.extractSuggestedFilename(finalMarkdown)
+            // 6. 移除"转换中"提示，添加完成状态
+            const finalContent = await this.app.vault.read(outputFile!);
+            const completedContent = finalContent.replace(
+                /> 🔄 正在转换中... \(\d+\/\d+\)/,
+                failedPages.length > 0
+                    ? `> ✅ 转换完成！成功 ${successPages}/${totalPages} 页（失败: 第 ${failedPages.join(', ')} 页）`
+                    : `> ✅ 转换完成！共 ${totalPages} 页`
             );
+            await this.app.vault.modify(outputFile!, completedContent);
 
             const duration = Date.now() - startTime;
 
@@ -216,7 +304,7 @@ export class ConversionService {
             new Notice(message, 5000);
 
             return {
-                markdown: finalMarkdown,
+                markdown: await this.app.vault.read(outputFile!),
                 sourcePath: filePath,
                 outputPath,
                 provider: this.settings.currentModel || "unknown",
@@ -230,10 +318,22 @@ export class ConversionService {
             new Notice(`PDF 转换失败: ${errorMessage}`, 5000);
             console.error("PDF 转换失败:", error);
 
+            // 如果文件已创建，写入错误信息
+            if (outputFile) {
+                const errorContent = await this.app.vault.read(outputFile);
+                await this.app.vault.modify(
+                    outputFile,
+                    errorContent.replace(
+                        /> 🔄 正在转换中.*/,
+                        `> ❌ 转换失败: ${errorMessage}`
+                    )
+                );
+            }
+
             return {
-                markdown: markdownParts.join(''), // 返回已成功的部分
+                markdown: "",
                 sourcePath: filePath,
-                outputPath: "",
+                outputPath,
                 provider: this.settings.currentModel || "unknown",
                 duration: Date.now() - startTime,
                 success: false,
@@ -316,6 +416,48 @@ export class ConversionService {
      * @param suggestedFilename 建议的文件名（可选）
      * @returns Promise<string> 输出文件路径
      */
+    /**
+     * 创建输出文件并返回路径
+     */
+    private async createOutputFile(fileData: FileData, initialContent: string): Promise<string> {
+        const { outputSettings } = this.settings;
+
+        // 确定输出目录
+        let outputDir = outputSettings.outputDir;
+        if (!outputDir.startsWith("/")) {
+            outputDir = "/" + outputDir;
+        }
+
+        // 确保输出目录存在
+        const outputFolder = this.app.vault.getAbstractFileByPath(outputDir.slice(1));
+        if (!outputFolder) {
+            await this.app.vault.createFolder(outputDir.slice(1));
+        }
+
+        // 确定输出文件名
+        let outputFileName: string;
+        if (outputSettings.keepOriginalName) {
+            const baseName = fileData.name.replace(/\.[^/.]+$/, "");
+            outputFileName = `${baseName}.${outputSettings.outputExtension}`;
+        } else {
+            const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
+            outputFileName = `converted-${timestamp}.${outputSettings.outputExtension}`;
+        }
+
+        // 构建完整输出路径
+        const outputPath = `${outputDir.slice(1)}/${outputFileName}`;
+
+        // 检查文件是否已存在
+        const existingFile = this.app.vault.getAbstractFileByPath(outputPath);
+        if (existingFile instanceof TFile) {
+            await this.app.vault.modify(existingFile, initialContent);
+        } else {
+            await this.app.vault.create(outputPath, initialContent);
+        }
+
+        return outputPath;
+    }
+
     private async saveConversionResult(
         fileData: FileData,
         markdown: string,

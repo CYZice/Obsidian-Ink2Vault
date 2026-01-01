@@ -1,5 +1,11 @@
 import { Notice } from 'obsidian';
-import * as pdfjsLib from 'pdfjs-dist';
+
+// 使用 Obsidian 内置的 PDF.js (window.pdfjsLib)
+declare global {
+    interface Window {
+        pdfjsLib: any;
+    }
+}
 
 /**
  * PDF 流式处理器
@@ -16,14 +22,16 @@ export class PDFProcessor {
         if (this.initialized) return;
 
         try {
-            // 禁用 Worker，使用主线程处理（Obsidian 插件环境兼容性最好）
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-            console.log('PDF.js initialized (main thread mode)');
+            // 使用 Obsidian 内置的 PDF.js，无需配置 Worker
+            if (!window.pdfjsLib) {
+                throw new Error('Obsidian PDF.js 未加载');
+            }
+            console.log('PDF.js initialized (using Obsidian built-in)');
+            this.initialized = true;
         } catch (err) {
-            console.warn('Failed to initialize PDF.js:', err);
+            console.error('Failed to initialize PDF.js:', err);
+            new Notice('PDF 功能不可用，请更新 Obsidian 版本', 5000);
         }
-
-        this.initialized = true;
     }
 
     /**
@@ -60,7 +68,7 @@ export class PDFProcessor {
 
         try {
             // 1. 加载 PDF
-            const loadingTask = pdfjsLib.getDocument({ data: buffer });
+            const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
             const pdf = await loadingTask.promise;
             const totalPages = pdf.numPages;
 
@@ -192,7 +200,7 @@ export class PDFProcessor {
         this.initWorker();
 
         try {
-            const loadingTask = pdfjsLib.getDocument({ data: buffer });
+            const loadingTask = window.pdfjsLib.getDocument({ data: buffer });
             const pdf = await loadingTask.promise;
 
             return {

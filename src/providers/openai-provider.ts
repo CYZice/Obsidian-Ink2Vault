@@ -1,6 +1,5 @@
-import { BaseAIProvider } from "./base-provider";
 import { FileData } from "../types";
-import { OpenAIConfig } from "../types";
+import { BaseAIProvider } from "./base-provider";
 
 /**
  * OpenAI API请求体接口
@@ -40,21 +39,21 @@ interface OpenAIResponse {
  */
 export class OpenAIProvider extends BaseAIProvider {
     name = "OpenAI";
-    
-    private config: OpenAIConfig;
-    
-    constructor(config: OpenAIConfig) {
+
+    private config: any;
+
+    constructor(config: any) {
         super();
         this.config = config;
     }
-    
+
     /**
      * 构建OpenAI API请求体
      * 使用标准的chat/completions格式
      */
     protected buildRequestBody(fileData: FileData, prompt: string): unknown {
         const dataUrl = `data:${fileData.mimeType};base64,${fileData.base64}`;
-        
+
         const requestBody: OpenAIRequest = {
             model: this.config.model || "gpt-4-vision-preview",
             messages: [
@@ -76,31 +75,31 @@ export class OpenAIProvider extends BaseAIProvider {
             ],
             max_tokens: 4096
         };
-        
+
         return requestBody;
     }
-    
+
     /**
      * 解析OpenAI API响应
      */
     protected parseResponse(response: unknown): string {
         const openaiResponse = response as OpenAIResponse;
-        
+
         // 检查错误
         if (openaiResponse.error) {
             throw new Error(openaiResponse.error.message);
         }
-        
+
         // 提取Markdown内容
         const markdownText = openaiResponse.choices?.[0]?.message?.content || "";
-        
+
         if (!markdownText) {
             throw new Error("未收到有效的响应内容");
         }
-        
+
         return markdownText;
     }
-    
+
     /**
      * 获取OpenAI API URL
      */
@@ -109,7 +108,7 @@ export class OpenAIProvider extends BaseAIProvider {
         const normalizedUrl = baseUrl.replace(/\/$/, "");
         return `${normalizedUrl}/chat/completions`;
     }
-    
+
     /**
      * 获取请求头
      */
@@ -119,7 +118,7 @@ export class OpenAIProvider extends BaseAIProvider {
             "Authorization": `Bearer ${this.config.apiKey}`
         };
     }
-    
+
     /**
      * 验证配置是否有效
      */

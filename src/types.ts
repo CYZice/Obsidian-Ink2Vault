@@ -23,24 +23,6 @@ export interface ModelConfig {
     baseUrl?: string;
 }
 
-export interface CommonPrompt {
-    id: string;
-    name: string;
-    content: string;
-}
-
-export interface GlobalRule {
-    id: string;
-    name: string;
-    content: string;
-    description?: string;
-    category?: string;
-    priority?: number;
-    enabled: boolean;
-    createdAt?: number;
-    updatedAt?: number;
-}
-
 export interface ImageData {
     id: string | number;
     name: string;
@@ -100,54 +82,11 @@ export interface PluginSettings {
     providers: Record<string, ProviderConfig>;
     models: Record<string, ModelConfig>;
     currentModel: string;
-    timeout: number;
     maxTokens: number;
     conversionPrompt?: string;
     outputSettings: OutputSettings;
     advancedSettings: AdvancedSettings;
-    legacyProviders?: ProviderConfigs;
-    activeProvider?: string;
-    enableGlobalRules?: boolean;
-    globalRules?: GlobalRule[];
     apiKeyLinks?: Record<string, string>;
-    commonPrompts: CommonPrompt[];
-    enableRightClick?: boolean;
-    enableAtTrigger?: boolean;
-    maxContextLines?: number;
-    maxContextChars?: number;
-    ruleTemplates?: GlobalRule[];
-}
-
-export interface ProviderConfigs {
-    gemini?: GeminiConfig;
-    claude?: ClaudeConfig;
-    openai?: OpenAIConfig;
-    ollama?: OllamaConfig;
-}
-
-export interface GeminiConfig {
-    apiKey: string;
-    model?: string;
-    enabled: boolean;
-}
-
-export interface ClaudeConfig {
-    apiKey: string;
-    model?: string;
-    enabled: boolean;
-}
-
-export interface OpenAIConfig {
-    apiKey: string;
-    baseUrl?: string;
-    model?: string;
-    enabled: boolean;
-}
-
-export interface OllamaConfig {
-    url: string;
-    model?: string;
-    enabled: boolean;
 }
 
 export interface OutputSettings {
@@ -159,9 +98,8 @@ export interface OutputSettings {
 
 export interface AdvancedSettings {
     timeout: number;
-    maxRetries: number;
-    verboseLogging: boolean;
-    useStreaming: boolean;
+    pdfQuality: number;  // PDF转图片质量 (0.1-1.0, 默认0.8)
+    pdfScale: number;    // PDF转图片缩放比例 (1.0-2.0, 默认1.5)
 }
 
 export interface FileData {

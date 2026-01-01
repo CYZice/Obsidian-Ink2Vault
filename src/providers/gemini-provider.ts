@@ -1,6 +1,5 @@
-import { BaseAIProvider } from "./base-provider";
 import { FileData } from "../types";
-import { GeminiConfig } from "../types";
+import { BaseAIProvider } from "./base-provider";
 
 /**
  * Gemini API请求体接口
@@ -39,14 +38,14 @@ interface GeminiResponse {
  */
 export class GeminiProvider extends BaseAIProvider {
     name = "Gemini";
-    
-    private config: GeminiConfig;
-    
-    constructor(config: GeminiConfig) {
+
+    private config: any;
+
+    constructor(config: any) {
         super();
         this.config = config;
     }
-    
+
     /**
      * 构建Gemini API请求体
      * 参考noted.md的gemini_client.rs实现
@@ -69,32 +68,32 @@ export class GeminiProvider extends BaseAIProvider {
                 }
             ]
         };
-        
+
         return requestBody;
     }
-    
+
     /**
      * 解析Gemini API响应
      * 参考noted.md的gemini_client.rs实现
      */
     protected parseResponse(response: unknown): string {
         const geminiResponse = response as GeminiResponse;
-        
+
         // 检查错误
         if (geminiResponse.error) {
             throw new Error(geminiResponse.error.message);
         }
-        
+
         // 提取Markdown内容
         const markdownText = geminiResponse.candidates?.[0]?.content?.parts?.[0]?.text || "";
-        
+
         if (!markdownText) {
             throw new Error("未收到有效的响应内容");
         }
-        
+
         return markdownText;
     }
-    
+
     /**
      * 获取Gemini API URL
      */
@@ -102,7 +101,7 @@ export class GeminiProvider extends BaseAIProvider {
         const model = this.config.model || "gemma-3-27b-it";
         return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.config.apiKey}`;
     }
-    
+
     /**
      * 获取请求头
      */
@@ -111,7 +110,7 @@ export class GeminiProvider extends BaseAIProvider {
             "Content-Type": "application/json"
         };
     }
-    
+
     /**
      * 验证配置是否有效
      */
