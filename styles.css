@@ -1,0 +1,615 @@
+/**
+ * Hand Markdown AI 插件样式
+ */
+
+/* 模态框样式 */
+.hand-markdown-ai-modal {
+    max-width: 600px;
+    max-height: 80vh;
+}
+
+.hand-markdown-ai-modal .modal-title {
+    text-align: center;
+    margin-bottom: 0.5rem;
+    color: var(--text-normal);
+}
+
+.hand-markdown-ai-modal .modal-description {
+    text-align: center;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+}
+
+/* 无文件消息 */
+.hand-markdown-ai-modal .no-files-message {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+    background: var(--background-secondary);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+/* 文件列表容器 */
+.hand-markdown-ai-modal .file-list-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+}
+
+/* 全选容器 */
+.hand-markdown-ai-modal .select-all-container {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.hand-markdown-ai-modal .select-all-checkbox {
+    margin-right: 0.5rem;
+    cursor: pointer;
+}
+
+.hand-markdown-ai-modal .select-all-label {
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-normal);
+}
+
+/* 文件列表 */
+.hand-markdown-ai-modal .file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.hand-markdown-ai-modal .file-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.hand-markdown-ai-modal .file-item:hover {
+    background: var(--background-modifier-hover);
+}
+
+.hand-markdown-ai-modal .file-checkbox {
+    margin-right: 0.75rem;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.hand-markdown-ai-modal .file-name {
+    flex: 1;
+    font-size: 0.9rem;
+    color: var(--text-normal);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.hand-markdown-ai-modal .file-size {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-left: 1rem;
+    flex-shrink: 0;
+}
+
+/* 统计信息 */
+.hand-markdown-ai-modal .file-stats {
+    text-align: center;
+    padding: 0.75rem;
+    background: var(--background-secondary);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    color: var(--text-normal);
+}
+
+/* 按钮容器 */
+.hand-markdown-ai-modal .modal-button-container {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.hand-markdown-ai-modal .modal-button-container button {
+    padding: 0.5rem 1.5rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.hand-markdown-ai-modal .modal-button-container button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 滚动条样式 */
+.hand-markdown-ai-modal .file-list-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.hand-markdown-ai-modal .file-list-container::-webkit-scrollbar-track {
+    background: var(--background-secondary);
+    border-radius: 4px;
+}
+
+.hand-markdown-ai-modal .file-list-container::-webkit-scrollbar-thumb {
+    background: var(--text-muted);
+    border-radius: 4px;
+}
+
+.hand-markdown-ai-modal .file-list-container::-webkit-scrollbar-thumb:hover {
+    background: var(--text-normal);
+}
+
+/* 设置页面样式 */
+.hand-markdown-ai-settings .setting-item {
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.hand-markdown-ai-settings .setting-item:last-child {
+    border-bottom: none;
+}
+
+.hand-markdown-ai-settings h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--text-accent);
+    font-size: 1.1rem;
+}
+
+.hand-markdown-ai-settings h4 {
+    margin-top: 1rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-normal);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* API Key 输入框样式 */
+.hand-markdown-ai-settings input[type="text"].setting-input-text {
+    font-family: monospace;
+    font-size: 0.85rem;
+}
+
+/* 提供商状态指示器 */
+.provider-status {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+}
+
+.provider-status.enabled {
+    background: var(--color-green);
+    box-shadow: 0 0 0 2px var(--color-green-intense);
+}
+
+.provider-status.disabled {
+    background: var(--text-muted);
+}
+
+/* 响应式设计 */
+@media (max-width: 600px) {
+    .hand-markdown-ai-modal {
+        max-width: 95vw;
+    }
+
+    .hand-markdown-ai-modal .file-list-container {
+        max-height: 300px;
+    }
+
+    .hand-markdown-ai-modal .file-size {
+        display: none;
+    }
+}
+
+/* 现代化设置页面样式 */
+.modern-settings-container {
+    padding: 1rem;
+}
+
+/* 供应商表格样式 */
+.provider-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    background: var(--background-primary);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.provider-table th {
+    background: var(--background-secondary);
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-normal);
+    border-bottom: 2px solid var(--background-modifier-border);
+}
+
+.provider-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    color: var(--text-normal);
+}
+
+.provider-table tr:last-child td {
+    border-bottom: none;
+}
+
+.provider-table tr:hover {
+    background: var(--background-modifier-hover);
+}
+
+.provider-status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.provider-status-badge.enabled {
+    background: var(--color-green);
+    color: white;
+}
+
+.provider-status-badge.disabled {
+    background: var(--text-muted);
+    color: var(--text-on-accent);
+}
+
+.provider-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.provider-actions button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.provider-actions .configure-btn {
+    background: var(--interactive-accent);
+    color: white;
+}
+
+.provider-actions .configure-btn:hover {
+    background: var(--interactive-accent-hover);
+}
+
+.provider-actions .toggle-btn {
+    background: var(--background-modifier-border);
+    color: var(--text-normal);
+}
+
+.provider-actions .toggle-btn:hover {
+    background: var(--background-modifier-border-hover);
+}
+
+/* 模型卡片网格 */
+.model-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.model-card {
+    background: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    padding: 1rem;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.model-card:hover {
+    border-color: var(--interactive-accent);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.model-card.selected {
+    border-color: var(--interactive-accent);
+    background: var(--background-modifier-form-field-highlighted);
+}
+
+.model-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.model-name {
+    font-weight: 600;
+    color: var(--text-normal);
+    font-size: 1rem;
+}
+
+.model-category {
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: var(--background-secondary);
+    color: var(--text-muted);
+}
+
+.model-provider {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.model-description {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-bottom: 1rem;
+}
+
+.model-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.model-actions button {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.model-actions .edit-btn {
+    background: var(--interactive-accent);
+    color: white;
+}
+
+.model-actions .edit-btn:hover {
+    background: var(--interactive-accent-hover);
+}
+
+.model-actions .delete-btn {
+    background: var(--color-red);
+    color: white;
+}
+
+.model-actions .delete-btn:hover {
+    background: var(--color-red-hover);
+}
+
+/* 添加按钮样式 */
+.add-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--interactive-accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    margin: 1rem 0;
+}
+
+.add-button:hover {
+    background: var(--interactive-accent-hover);
+    transform: translateY(-1px);
+}
+
+.add-button:active {
+    transform: translateY(0);
+}
+
+/* 模态框样式增强 - 仅应用于插件模态框 */
+.hand-markdown-ai-modal .modal-container .modal-bg {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.hand-markdown-ai-modal .modal-container .modal-content {
+    background: var(--background-primary);
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.hand-markdown-ai-modal .modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.hand-markdown-ai-modal .modal-title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-normal);
+}
+
+.hand-markdown-ai-modal .modal-body {
+    padding: 1.5rem;
+}
+
+.hand-markdown-ai-modal .modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--background-modifier-border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+/* 表单样式 - 仅应用于插件模态框 */
+.hand-markdown-ai-modal .form-group {
+    margin-bottom: 1rem;
+}
+
+.hand-markdown-ai-modal .form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-normal);
+}
+
+.hand-markdown-ai-modal .form-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    background: var(--background-primary);
+    color: var(--text-normal);
+    font-size: 0.9rem;
+    transition: border-color 0.2s;
+}
+
+.hand-markdown-ai-modal .form-input:focus {
+    outline: none;
+    border-color: var(--interactive-accent);
+    box-shadow: 0 0 0 3px rgba(var(--interactive-accent-rgb), 0.1);
+}
+
+.hand-markdown-ai-modal .form-input::placeholder {
+    color: var(--text-muted);
+}
+
+.hand-markdown-ai-modal .form-select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    background: var(--background-primary);
+    color: var(--text-normal);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.hand-markdown-ai-modal .form-select:focus {
+    outline: none;
+    border-color: var(--interactive-accent);
+}
+
+.hand-markdown-ai-modal .form-textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    background: var(--background-primary);
+    color: var(--text-normal);
+    font-size: 0.9rem;
+    min-height: 100px;
+    resize: vertical;
+    font-family: inherit;
+}
+
+.hand-markdown-ai-modal .form-textarea:focus {
+    outline: none;
+    border-color: var(--interactive-accent);
+}
+
+/* 按钮样式 - 仅应用于插件模态框 */
+.hand-markdown-ai-modal .btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hand-markdown-ai-modal .btn:hover {
+    transform: translateY(-1px);
+}
+
+.hand-markdown-ai-modal .btn:active {
+    transform: translateY(0);
+}
+
+.hand-markdown-ai-modal .btn-primary {
+    background: var(--interactive-accent);
+    color: white;
+}
+
+.hand-markdown-ai-modal .btn-primary:hover {
+    background: var(--interactive-accent-hover);
+}
+
+.hand-markdown-ai-modal .btn-secondary {
+    background: var(--background-modifier-border);
+    color: var(--text-normal);
+}
+
+.hand-markdown-ai-modal .btn-secondary:hover {
+    background: var(--background-modifier-border-hover);
+}
+
+.hand-markdown-ai-modal .btn-danger {
+    background: var(--color-red);
+    color: white;
+}
+
+.hand-markdown-ai-modal .btn-danger:hover {
+    background: var(--color-red-hover);
+}
+
+/* 帮助文本 - 仅应用于插件模态框 */
+.hand-markdown-ai-modal .help-text {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+    line-height: 1.4;
+}
+
+/* 响应式表格 */
+@media (max-width: 768px) {
+    .provider-table {
+        font-size: 0.9rem;
+    }
+
+    .provider-table th,
+    .provider-table td {
+        padding: 8px;
+    }
+
+    .provider-actions {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .model-grid {
+        grid-template-columns: 1fr;
+    }
+}

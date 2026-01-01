@@ -1,0 +1,88 @@
+{
+  "providers": {
+    "gemini": {
+      "apiKey": "",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "enabled": false,
+      "type": "gemini"
+    },
+    "openai": {
+      "apiKey": "sk-8ErOlOOsuuYCXEoeVLGC0n6bMKD09LOSpc7Cdrp7InfMe4pW",
+      "baseUrl": "https://yunwu.ai/v1",
+      "enabled": true,
+      "type": "openai"
+    },
+    "ollama": {
+      "apiKey": "",
+      "baseUrl": "http://localhost:11434/v1",
+      "enabled": false,
+      "type": "ollama"
+    }
+  },
+  "models": {
+    "gemini-3-flash-preview": {
+      "id": "gemini-3-flash-preview",
+      "name": "Gemini 3 Flash Preview",
+      "provider": "openai",
+      "model": "gemini-3-flash-preview",
+      "enabled": true,
+      "category": "multimodal"
+    }
+  },
+  "currentModel": "gemini-3-flash-preview",
+  "timeout": 60000,
+  "enableRightClick": true,
+  "enableAtTrigger": true,
+  "maxTokens": 5000,
+  "maxContextLines": 20,
+  "maxContextChars": 3000,
+  "conversionPrompt": "",
+  "outputSettings": {
+    "outputDir": "Handwriting Converted",
+    "keepOriginalName": true,
+    "outputExtension": "md",
+    "autoOpen": true
+  },
+  "advancedSettings": {
+    "timeout": 60000,
+    "maxRetries": 3,
+    "verboseLogging": false,
+    "useStreaming": false
+  },
+  "globalRules": [],
+  "ruleTemplates": [],
+  "enableGlobalRules": false,
+  "apiKeyLinks": {
+    "openai": "https://platform.openai.com/api-keys",
+    "anthropic": "https://console.anthropic.com/",
+    "gemini": "https://aistudio.google.com/app/apikey",
+    "ollama": "https://ollama.com/"
+  },
+  "commonPrompts": [
+    {
+      "id": "expand",
+      "name": "扩展内容",
+      "content": "请扩展这段内容，增加更多细节和例子"
+    },
+    {
+      "id": "summarize",
+      "name": "总结概括",
+      "content": "请总结这段内容的要点"
+    },
+    {
+      "id": "improve",
+      "name": "改进文本",
+      "content": "请改进这段文本的表达和逻辑"
+    },
+    {
+      "id": "translate",
+      "name": "翻译",
+      "content": "请将这段内容翻译成英文"
+    },
+    {
+      "id": "continue",
+      "name": "继续写作",
+      "content": "请根据上下文继续写作，保持风格一致"
+    }
+  ]
+}

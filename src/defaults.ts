@@ -1,0 +1,136 @@
+import { MODEL_CATEGORIES } from "./constants";
+import type { PluginSettings } from "./types";
+
+/**
+ * 默认插件设置
+ */
+export const DEFAULT_SETTINGS: PluginSettings = {
+    providers: {
+        openai: {
+            apiKey: "",
+            baseUrl: "https://api.openai.com/v1",
+            enabled: true,
+            name: "OpenAI",
+            type: "openai"
+        },
+        anthropic: {
+            apiKey: "",
+            baseUrl: "https://api.anthropic.com/v1",
+            enabled: false,
+            name: "Anthropic",
+            type: "anthropic"
+        },
+        gemini: {
+            apiKey: "",
+            baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+            enabled: false,
+            name: "Google Gemini",
+            type: "gemini"
+        },
+        ollama: {
+            apiKey: "",
+            baseUrl: "http://localhost:11434/v1",
+            enabled: false,
+            name: "Ollama",
+            type: "ollama"
+        }
+    },
+
+    models: {
+        "gemini-3-pro-preview": {
+            id: "gemini-3-pro-preview",
+            name: "Gemini 3 Pro Preview",
+            provider: "openai",
+            model: "gemini-3-pro-preview",
+            enabled: true,
+            category: MODEL_CATEGORIES.MULTIMODAL
+        },
+        "gemini-3-flash-preview": {
+            id: "gemini-3-flash-preview",
+            name: "Gemini 3 Flash Preview",
+            provider: "openai",
+            model: "gemini-3-flash-preview",
+            enabled: true,
+            category: MODEL_CATEGORIES.MULTIMODAL
+        },
+        "gpt-5": {
+            id: "gpt-5",
+            name: "GPT-5",
+            provider: "openai",
+            model: "gpt-5",
+            enabled: true,
+            category: MODEL_CATEGORIES.MULTIMODAL
+        }
+    },
+
+    currentModel: "gemini-3-flash-preview",
+    timeout: 30000,
+    enableRightClick: true,
+    enableAtTrigger: true,
+    maxTokens: 5000,
+    maxContextLines: 20,
+    maxContextChars: 3000,
+    conversionPrompt: undefined,
+
+    outputSettings: {
+        outputDir: "Handwriting Converted",
+        keepOriginalName: true,
+        outputExtension: "md",
+        autoOpen: true
+    },
+
+    advancedSettings: {
+        timeout: 30000,
+        maxRetries: 3,
+        verboseLogging: false,
+        useStreaming: false
+    },
+
+    globalRules: [],
+    ruleTemplates: [],
+    enableGlobalRules: true,
+
+    // API密钥获取链接
+    apiKeyLinks: {
+        openai: "https://platform.openai.com/api-keys",
+        anthropic: "https://console.anthropic.com/",
+        gemini: "https://aistudio.google.com/app/apikey",
+        ollama: "https://ollama.com/"
+    },
+
+    // 常用提示词
+    commonPrompts: [
+        { id: "expand", name: "扩展内容", content: "请扩展这段内容，增加更多细节和例子" },
+        { id: "summarize", name: "总结概括", content: "请总结这段内容的要点" },
+        { id: "improve", name: "改进文本", content: "请改进这段文本的表达和逻辑" },
+        { id: "translate", name: "翻译", content: "请将这段内容翻译成英文" },
+        { id: "continue", name: "继续写作", content: "请根据上下文继续写作，保持风格一致" }
+    ]
+}
+
+
+/**
+ * 默认转换提示词（来自noted.md）
+ */
+export const DEFAULT_CONVERSION_PROMPT = `Take the handwritten notes from this image and convert them into a clean, well-structured Markdown file. Pay attention to headings, lists, and any other formatting. Resemble the hierarchy. Use latex for mathematical equations. For latex use the $$ syntax instead of \`\`\`latex. Do not skip anything from the original text. The output should be suitable for use in Obsidian. Just give me the markdown, do not include other text in the response apart from the markdown file. No explanation on how the changes were made is needed`;
+
+/**
+ * 支持的文件类型和对应的MIME类型
+ */
+export const SUPPORTED_FILE_TYPES = {
+    // 图片格式
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".bmp": "image/bmp",
+
+    // PDF格式
+    ".pdf": "application/pdf"
+};
+
+/**
+ * 文件大小限制（10MB）
+ */
+export const MAX_FILE_SIZE = 10 * 1024 * 1024;
