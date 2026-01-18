@@ -76,19 +76,23 @@
 | `Ctrl+P` | 切换 AI 提供商 |
 | `Ctrl+,` | 打开设置 |
 
+
 ### 命令面板
 
-通过 `Ctrl+P` 打开命令面板，搜索以下命令：
-- "Hand Markdown AI: 转换单个文件"
-- "Hand Markdown AI: 转换当前文件"
-- "Hand Markdown AI: 转换选中的文件"
-- "Hand Markdown AI: 快速转换当前文件"
-- "Hand Markdown AI: 切换 AI 提供商"
-- "Hand Markdown AI: 打开设置"
+通过 `Ctrl+P` 打开命令面板，输入或搜索以下命令：
+
+- **Hand Markdown AI: 转换当前文件**：将当前激活的文件转换为 Markdown（支持 PDF、JPG、PNG）。
+- **Hand Markdown AI: 转换文件夹内所有文件**：弹出文件夹选择框，批量转换所选文件夹及其子文件夹内所有受支持的文件。
+
 
 ### 右键菜单
 
-在文件浏览器中右键点击文件，选择 "Hand Markdown AI: 转换文件"
+在文件浏览器或相关界面右键点击时，支持以下菜单功能：
+
+- **文件浏览器右键文件**：受支持格式（PDF、JPG、PNG）文件右键，显示“转换为Markdown”菜单项。
+- **输出目录 Markdown 文件**：右键输出目录中的 Markdown 文件，显示“重试失败页（输出文件）”和“重试指定页（输出文件）”菜单项，可针对转换失败的页进行重试。
+- **文件夹右键**：右键文件夹，显示“转换此文件夹内所有文件”菜单项，可批量转换整个文件夹。
+- **Markdown 预览图片右键**：在 Markdown 预览视图下右键图片（包括 Excalidraw 导出 PNG），显示“转换为Markdown”菜单项。
 
 ### Ribbon 图标
 
