@@ -110,6 +110,10 @@ export const SUPPORTED_FILE_TYPES = {
     // PDF格式
     ".pdf": "application/pdf",
 
+    // Excalidraw格式
+    ".excalidraw": "application/json",
+    ".excalidraw.md": "application/json",
+
 };
 
 /**

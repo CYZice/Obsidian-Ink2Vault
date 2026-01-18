@@ -1,0 +1,20 @@
+export type ObsidianDeviceType = {
+    isDesktop: boolean;
+    isPhone: boolean;
+    isTablet: boolean;
+    isMobile: boolean;
+    isLinux: boolean;
+    isMacOS: boolean;
+    isWindows: boolean;
+    isIOS: boolean;
+    isAndroid: boolean;
+};
+export declare let hostPlugin: any;
+export declare function destroyObsidianUtils(): void;
+export declare function initializeObsidianUtils(): void;
+export declare function getHostPlugin(): any;
+export declare const getObsidianDeviceInfo: () => ObsidianDeviceType | null;
+export declare const getDesktopUIMode: () => any;
+export declare function getAreaLimit(): any;
+export declare function getWidthHeightLimit(): any;
+export declare function getHighlightColor(sceneBgColor: string, opacity?: number): string;

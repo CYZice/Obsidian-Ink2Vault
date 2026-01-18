@@ -11,6 +11,7 @@ const context = await esbuild.context({
         "obsidian",
         "electron",
         "pdfjs-dist",
+        "@zsviczian/excalidraw",
         ...builtins
     ],
     format: "cjs",

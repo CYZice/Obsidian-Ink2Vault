@@ -1,250 +1,168 @@
-import { exportToBlob, exportToSvg } from "@zsviczian/excalidraw";
+import { App } from "obsidian";
 import { FileData } from "../types";
 
 /**
  * Excalidraw 处理器
- * 用于将 .excalidraw 文件转换为 PNG 或 SVG
+ * 调用已安装的 Excalidraw 插件 API 将 .excalidraw 文件转换为 PNG
  */
 export class ExcalidrawProcessor {
     /**
-     * 将 Excalidraw JSON 转换为 PNG Base64 (data URL)
+     * 检查 Excalidraw 插件是否可用
      * 
-     * @param jsonContent Excalidraw JSON 文件内容
-     * @param filePath 文件路径
-     * @param options 转换选项
-     * @returns FileData 对象，包含 PNG 的 Base64 编码
-     * @throws Error 如果转换失败
+     * @param app Obsidian App 实例
+     * @returns 如果插件可用返回 true，否则返回 false
      */
-    static async convertExcalidrawToPng(
-        jsonContent: string,
-        filePath: string,
-        options?: {
-            scale?: number;           // 缩放倍数
-            withBackground?: boolean; // 是否包含背景
-            withDarkMode?: boolean;   // 是否使用深色主题
-            padding?: number;         // 内边距
-        }
-    ): Promise<FileData> {
+    static isExcalidrawAvailable(app: App): boolean {
         try {
-            // 1. 解析 Excalidraw JSON
-            let scene: any;
-            try {
-                scene = JSON.parse(jsonContent);
-            } catch (parseError) {
-                throw new Error("Invalid Excalidraw JSON format");
-            }
-
-            // 2. 验证 scene 结构
-            if (!scene.elements || !Array.isArray(scene.elements)) {
-                throw new Error("Invalid Excalidraw file structure: missing elements");
-            }
-
-            // 3. 准备导出配置
-            const scale = options?.scale ?? 1;
-            const withBackground = options?.withBackground ?? true;
-            const withDarkMode = options?.withDarkMode ?? false;
-            const padding = options?.padding ?? 10;
-
-            // 4. 调用 Excalidraw 导出函数
-            const blob = await exportToBlob({
-                // 过滤已删除的元素
-                elements: scene.elements.filter((el: any) => !el.isDeleted),
-
-                // 应用主题和背景设置
-                appState: {
-                    ...scene.appState,
-                    exportBackground: withBackground,
-                    exportWithDarkMode: withDarkMode,
-                },
-
-                // 嵌入的文件（如果有）
-                files: scene.files || {},
-
-                // 导出内边距
-                exportPadding: padding,
-
-                // 输出格式为 PNG
-                mimeType: "image/png" as any,
-
-                // 设置输出尺寸和缩放
-                getDimensions: (width: number, height: number) => ({
-                    width: Math.floor(width * scale),
-                    height: Math.floor(height * scale),
-                    scale,
-                }),
-            });
-
-            if (!blob) {
-                throw new Error("Failed to generate PNG blob from Excalidraw");
-            }
-
-            // 5. 转换 Blob 为 Base64 Data URL
-            const arrayBuffer = await blob.arrayBuffer();
-            const base64 = this.arrayBufferToBase64(arrayBuffer);
-            const dataUrl = `data:image/png;base64,${base64}`;
-
-            // 6. 提取文件名
-            const fileName = filePath
-                .split("/")
-                .pop()
-                ?.replace(/\.excalidraw$/i, "") || "drawing";
-
-            // 7. 返回 FileData
-            return {
-                path: filePath,
-                base64: dataUrl,           // 包含 data URL 前缀
-                mimeType: "image/png",
-                size: base64.length,
-                name: fileName,
-            };
-        } catch (error) {
-            const msg = error instanceof Error ? error.message : String(error);
-            throw new Error(`Excalidraw to PNG conversion failed: ${msg}`);
-        }
-    }
-
-    /**
-     * 将 Excalidraw JSON 转换为 SVG HTML 字符串
-     * 
-     * @param jsonContent Excalidraw JSON 文件内容
-     * @param filePath 文件路径
-     * @param options 转换选项
-     * @returns SVG 的 HTML 字符串
-     * @throws Error 如果转换失败
-     */
-    static async convertExcalidrawToSvg(
-        jsonContent: string,
-        filePath: string,
-        options?: {
-            withBackground?: boolean;
-            withDarkMode?: boolean;
-            padding?: number;
-        }
-    ): Promise<string> {
-        try {
-            // 1. 解析 Excalidraw JSON
-            let scene: any;
-            try {
-                scene = JSON.parse(jsonContent);
-            } catch (parseError) {
-                throw new Error("Invalid Excalidraw JSON format");
-            }
-
-            // 2. 验证 scene 结构
-            if (!scene.elements || !Array.isArray(scene.elements)) {
-                throw new Error("Invalid Excalidraw file structure: missing elements");
-            }
-
-            // 3. 准备导出配置
-            const withBackground = options?.withBackground ?? true;
-            const withDarkMode = options?.withDarkMode ?? false;
-            const padding = options?.padding ?? 10;
-
-            // 4. 调用 Excalidraw 导出函数
-            const svg = await exportToSvg({
-                // 过滤已删除的元素
-                elements: scene.elements.filter((el: any) => !el.isDeleted),
-
-                // 应用主题和背景设置
-                appState: {
-                    ...scene.appState,
-                    exportBackground: withBackground,
-                    exportWithDarkMode: withDarkMode,
-                },
-
-                // 嵌入的文件（如果有）
-                files: scene.files || {},
-
-                // 导出内边距
-                exportPadding: padding,
-
-                // 导出帧信息
-                exportingFrame: null,
-
-                // 是否渲染可嵌入内容
-                renderEmbeddables: true,
-
-                // 是否跳过字体内联（节省大小）
-                skipInliningFonts: false,
-            });
-
-            if (!svg) {
-                throw new Error("Failed to generate SVG from Excalidraw");
-            }
-
-            // 5. 返回 SVG HTML 字符串
-            return svg.outerHTML;
-        } catch (error) {
-            const msg = error instanceof Error ? error.message : String(error);
-            throw new Error(`Excalidraw to SVG conversion failed: ${msg}`);
-        }
-    }
-
-    /**
-     * 将 ArrayBuffer 转换为 Base64 字符串
-     * 
-     * @param buffer ArrayBuffer 对象
-     * @returns Base64 字符串（不包含前缀）
-     */
-    private static arrayBufferToBase64(buffer: ArrayBuffer): string {
-        const bytes = new Uint8Array(buffer);
-        let binary = "";
-
-        for (let i = 0; i < bytes.length; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-
-        return btoa(binary);
-    }
-
-    /**
-     * 验证文件是否为有效的 Excalidraw JSON
-     * 
-     * @param jsonContent 文件内容
-     * @returns 是否有效
-     */
-    static isValidExcalidrawJson(jsonContent: string): boolean {
-        try {
-            const scene = JSON.parse(jsonContent);
-            return (
-                scene &&
-                typeof scene === "object" &&
-                Array.isArray(scene.elements) &&
-                typeof scene.appState === "object"
-            );
+            // @ts-ignore - 插件管理器的内部 API
+            const excalidrawPlugin = app.plugins.getPlugin("obsidian-excalidraw-plugin");
+            // 只要插件存在，就认为可用（ea 可能延迟加载）
+            return !!excalidrawPlugin;
         } catch {
             return false;
         }
     }
 
     /**
-     * 从 Excalidraw JSON 中提取元数据
+     * 将 Excalidraw JSON 转换为 PNG Base64 (data URL)
+     * 仅在需要时调用，且只有当 Excalidraw 插件可用时才能成功
      * 
-     * @param jsonContent 文件内容
-     * @returns 元数据对象
+     * @param app Obsidian App 实例
+     * @param jsonContent Excalidraw JSON 文件内容
+     * @param filePath 文件路径
+     * @returns FileData 对象，包含 PNG 的 Base64 编码；如果插件不可用返回降级方案
+     * @throws Error 如果转换失败
      */
-    static extractMetadata(jsonContent: string): {
-        elementCount: number;
-        hasImages: boolean;
-        theme?: string;
-    } | null {
+    static async convertExcalidrawToPng(
+        app: App,
+        jsonContent: string,
+        filePath: string
+    ): Promise<FileData> {
         try {
-            const scene = JSON.parse(jsonContent);
-            if (!this.isValidExcalidrawJson(jsonContent)) {
-                return null;
+            // 1. 获取 Excalidraw 插件实例（按需调用，不强制）
+            // @ts-ignore - 插件管理器的内部 API
+            const excalidrawPlugin = app.plugins.getPlugin("obsidian-excalidraw-plugin");
+
+            // 如果插件不存在，返回降级方案（直接返回 JSON 内容作为 Base64）
+            if (!excalidrawPlugin) {
+                console.warn("Excalidraw 插件未安装，使用降级方案");
+                return this.getFallbackFileData(jsonContent, filePath);
             }
 
-            const hasImages = scene.elements.some(
-                (el: any) => el.type === "image"
-            );
+            // 2. 获取 ExcalidrawAutomate (EA) 接口
+            // 这是官方推荐的 API 访问点
+            const ea = excalidrawPlugin.ea;
 
-            return {
-                elementCount: scene.elements.length,
-                hasImages,
-                theme: scene.appState?.theme,
-            };
-        } catch {
-            return null;
+            // 如果 ea 不可用，也可以尝试其他 API（兼容性考虑）
+            if (!ea && !excalidrawPlugin.excalidrawAPI) {
+                console.warn("ExcalidrawAutomate API 不可用，使用降级方案");
+                return this.getFallbackFileData(jsonContent, filePath);
+            }
+
+            // 3. 解析 Excalidraw JSON
+            let scene: any;
+            try {
+                scene = JSON.parse(jsonContent);
+            } catch (parseError) {
+                throw new Error("Invalid Excalidraw JSON format");
+            }
+
+            // 4. 验证 scene 结构
+            if (!scene.elements || !Array.isArray(scene.elements)) {
+                throw new Error("Invalid Excalidraw file structure: missing elements");
+            }
+
+            // 5. 尝试使用 EA API 创建 PNG
+            if (ea && typeof ea.createPNG === 'function') {
+                const blob = await ea.createPNG(
+                    filePath,
+                    1, // 缩放比例
+                    scene.elements,
+                    scene.appState,
+                    scene.files
+                );
+
+                if (blob) {
+                    // 6. 转换 Blob 为 Base64 Data URL
+                    const arrayBuffer = await blob.arrayBuffer();
+                    const base64 = this.arrayBufferToBase64(arrayBuffer);
+                    const dataUrl = `data:image/png;base64,${base64}`;
+
+                    // 7. 提取文件名
+                    const fileName = filePath
+                        .split("/")
+                        .pop()
+                        ?.replace(/\.excalidraw(\.md)?$/i, "") || "drawing";
+
+                    // 8. 返回 FileData
+                    return {
+                        path: filePath,
+                        base64: dataUrl,
+                        mimeType: "image/png",
+                        size: base64.length,
+                        name: fileName,
+                    };
+                }
+            }
+
+            // 如果 EA API 不可用或失败，使用降级方案
+            console.warn("ExcalidrawAutomate createPNG 不可用或失败，使用降级方案");
+            return this.getFallbackFileData(jsonContent, filePath);
+
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            console.error(`Excalidraw PNG conversion failed: ${msg}`);
+            // 转换失败时，也返回降级方案而不是抛出错误
+            return this.getFallbackFileData(jsonContent, filePath);
         }
+    }
+
+    /**
+     * 获取降级方案：当 Excalidraw 插件不可用时使用
+     * 返回 Excalidraw JSON 的 Base64 编码
+     * 
+     * @param jsonContent Excalidraw JSON 内容
+     * @param filePath 文件路径
+     * @returns FileData 对象
+     */
+    private static getFallbackFileData(jsonContent: string, filePath: string): FileData {
+        const base64 = this.stringToBase64(jsonContent);
+        const fileName = filePath
+            .split("/")
+            .pop()
+            ?.replace(/\.excalidraw$/i, "") || "drawing";
+
+        return {
+            path: filePath,
+            base64: `data:application/json;base64,${base64}`,
+            mimeType: "application/json",
+            size: base64.length,
+            name: fileName,
+        };
+    }
+
+    /**
+     * 将字符串转换为 Base64
+     */
+    private static stringToBase64(str: string): string {
+        return btoa(unescape(encodeURIComponent(str)));
+    }
+
+    /**
+     * 将 ArrayBuffer 转换为 Base64 字符串
+     */
+    private static arrayBufferToBase64(buffer: ArrayBuffer): string {
+        const bytes = new Uint8Array(buffer);
+
+        // 使用 btoa()，但需要逐块处理避免栈溢出
+        let binary = "";
+        const chunkSize = 8192; // 每次处理 8KB
+
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+            binary += String.fromCharCode(...Array.from(chunk));
+        }
+
+        return btoa(binary);
     }
 }

@@ -148,7 +148,10 @@ var init_defaults = __esm({
       ".webp": "image/webp",
       ".bmp": "image/bmp",
       // PDF格式
-      ".pdf": "application/pdf"
+      ".pdf": "application/pdf",
+      // Excalidraw格式
+      ".excalidraw": "application/json",
+      ".excalidraw.md": "application/json"
     };
     MAX_FILE_SIZE = 10 * 1024 * 1024;
   }
@@ -178,6 +181,9 @@ var init_file_processor = __esm({
         const mimeType = SUPPORTED_FILE_TYPES[extension];
         if (!mimeType) {
           throw new Error(`\u4E0D\u652F\u6301\u7684\u6587\u4EF6\u7C7B\u578B: ${extension}`);
+        }
+        if (extension === ".excalidraw" || extension === ".excalidraw.md") {
+          return await this.processExcalidrawFile(filePath, app);
         }
         const arrayBuffer = await this.readFile(filePath, app);
         const fileSize = arrayBuffer.byteLength;
@@ -3480,7 +3486,7 @@ var HandMarkdownAIPlugin = class extends import_obsidian9.Plugin {
     return null;
   }
   /**
-   * 转换编辑器中的链接文件（图片或PDF）为Markdown文本
+   * 转换编辑器中的链接文件（图片、PDF、Excalidraw）为Markdown文本
    * 在编辑器中直接插入到链接下方
    */
   async convertLinkInEditor(linkInfo, editor, view, lineNum) {
@@ -3508,7 +3514,25 @@ var HandMarkdownAIPlugin = class extends import_obsidian9.Plugin {
         return;
       }
       const { FileProcessor: FileProcessor2 } = await Promise.resolve().then(() => (init_file_processor(), file_processor_exports));
-      const fileData = await FileProcessor2.processFile(targetFile.path, this.app);
+      let fileData;
+      let actualFilePath = targetFile.path;
+      if (targetFile.path.endsWith(".excalidraw") || targetFile.path.endsWith(".excalidraw.md")) {
+        const pngPath = targetFile.path.replace(/\.excalidraw(\.md)?$/, ".excalidraw.png");
+        const pngFile = this.app.vault.getAbstractFileByPath(pngPath);
+        if (pngFile instanceof import_obsidian9.TFile) {
+          actualFilePath = pngPath;
+          fileData = await FileProcessor2.processFile(pngPath, this.app);
+        } else {
+          new import_obsidian9.Notice(`\u274C \u627E\u4E0D\u5230\u5BF9\u5E94\u7684 PNG \u6587\u4EF6
+
+\u671F\u671B\u4F4D\u7F6E: ${pngPath}
+
+\u8BF7\u5148\u5728 Excalidraw \u63D2\u4EF6\u4E2D\u5BFC\u51FA PNG\uFF0C\u6216\u68C0\u67E5\u6587\u4EF6\u662F\u5426\u5B58\u5728\u3002`, 7e3);
+          return;
+        }
+      } else {
+        fileData = await FileProcessor2.processFile(targetFile.path, this.app);
+      }
       const prompt2 = this.settings.conversionPrompt || "\u5C06\u6587\u4EF6\u4E2D\u7684\u5185\u5BB9\u8F6C\u6362\u4E3AMarkdown\u683C\u5F0F";
       const result = await this.aiService.convertFile(fileData, prompt2);
       if (result.success && result.markdown) {

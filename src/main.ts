@@ -6,7 +6,6 @@ import { AIService } from "./services/ai-service";
 import type { PluginSettings } from "./types";
 import { SimpleSettingsTab } from "./ui/simple-settings-tab";
 import { PDFProcessor } from "./utils/pdf-processor";
-import { ExcalidrawProcessor } from "./utils/excalidraw-processor";
 
 export default class HandMarkdownAIPlugin extends Plugin {
     settings: PluginSettings;
@@ -309,18 +308,26 @@ export default class HandMarkdownAIPlugin extends Plugin {
             // 使用 ConversionService 转换文件，但不保存到新文件
             // 我们需要直接获取转换结果
             const { FileProcessor } = await import('./file-processor');
-            
-            // 特殊处理 Excalidraw 文件
+
+            // 特殊处理 Excalidraw 文件：查找对应的 PNG 文件
             let fileData;
-            if (targetFile.path.endsWith('.excalidraw')) {
-                // 读取 Excalidraw JSON 文件
-                const jsonContent = await this.app.vault.read(targetFile);
-                
-                // 转换为 PNG FileData
-                fileData = await ExcalidrawProcessor.convertExcalidrawToPng(
-                    jsonContent,
-                    targetFile.path
-                );
+            let actualFilePath = targetFile.path;
+
+            if (targetFile.path.endsWith('.excalidraw') || targetFile.path.endsWith('.excalidraw.md')) {
+                // 生成对应的 PNG 文件路径
+                // .excalidraw 或 .excalidraw.md 都对应 .excalidraw.png
+                const pngPath = targetFile.path.replace(/\.excalidraw(\.md)?$/, '.excalidraw.png');
+                const pngFile = this.app.vault.getAbstractFileByPath(pngPath);
+
+                if (pngFile instanceof TFile) {
+                    // PNG 文件存在，使用 PNG 继续后续逻辑
+                    actualFilePath = pngPath;
+                    fileData = await FileProcessor.processFile(pngPath, this.app);
+                } else {
+                    // PNG 文件不存在，提示用户
+                    new Notice(`❌ 找不到对应的 PNG 文件\n\n期望位置: ${pngPath}\n\n请先在 Excalidraw 插件中导出 PNG，或检查文件是否存在。`, 7000);
+                    return;
+                }
             } else {
                 // 处理普通图片和 PDF
                 fileData = await FileProcessor.processFile(targetFile.path, this.app);

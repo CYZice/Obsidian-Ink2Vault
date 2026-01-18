@@ -20,11 +20,15 @@ export class FileProcessor {
         // 获取文件扩展名
         const extension = this.getFileExtension(filePath);
 
-
         // 验证文件类型
         const mimeType = SUPPORTED_FILE_TYPES[extension as keyof typeof SUPPORTED_FILE_TYPES];
         if (!mimeType) {
             throw new Error(`不支持的文件类型: ${extension}`);
+        }
+
+        // 特殊处理 Excalidraw 文件（.excalidraw 和 .excalidraw.md）
+        if (extension === ".excalidraw" || extension === ".excalidraw.md") {
+            return await this.processExcalidrawFile(filePath, app);
         }
 
         // 读取文件
