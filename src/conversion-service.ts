@@ -72,17 +72,19 @@ export class ConversionService {
             new Notice(`正在使用 AI 转换文件...`, 3000);
 
             const conversionResult = await this.aiService.convertFile(fileData, prompt);
+            const processedMarkdown = ConversionService.postProcessConvertedMarkdown(conversionResult.markdown, this.settings);
 
             const outputPath = await this.saveConversionResult(
                 fileData,
-                conversionResult.markdown,
-                this.extractSuggestedFilename(conversionResult.markdown)
+                processedMarkdown,
+                this.extractSuggestedFilename(processedMarkdown)
             );
 
             new Notice(`转换成功！耗时: ${conversionResult.duration}ms`, 3000);
 
             return {
                 ...conversionResult,
+                markdown: processedMarkdown,
                 outputPath,
                 sourcePath: filePath
             };
@@ -247,9 +249,12 @@ export class ConversionService {
                         const { result, job } = jobResults.get(nextWriteId)!;
 
                         const currentContent = await this.app.vault.read(outputFile!);
+                        const useSeparator = this.settings.outputSettings?.insertPageSeparator ?? false;
+                        const separator = useSeparator ? `\n\n---\n\n` : `\n\n`;
+                        const processedMarkdown = ConversionService.postProcessConvertedMarkdown(result.markdown, this.settings);
                         const appendContent = result.success !== false
-                            ? (nextWriteId === 1 ? `${result.markdown}` : `\n\n---\n\n${result.markdown}`)
-                            : (nextWriteId === 1 ? `> [!ERROR] 转换失败: ${result.error}` : `\n\n---\n\n> [!ERROR] 转换失败: ${result.error}`);
+                            ? (nextWriteId === 1 ? `${processedMarkdown}` : `${separator}${processedMarkdown}`)
+                            : (nextWriteId === 1 ? `> [!ERROR] 转换失败: ${result.error}` : `${separator}> [!ERROR] 转换失败: ${result.error}`);
 
                         // 更新统计与模态进度
                         if (result.success !== false) {
@@ -347,9 +352,11 @@ export class ConversionService {
                         console.error(`第 ${pageNum} 页转换失败:`, errMsg);
                         // 写入错误信息（即时，包含页号，便于后续重试识别）
                         const currentContent = await this.app.vault.read(outputFile!);
+                        const useSeparator = this.settings.outputSettings?.insertPageSeparator ?? false;
+                        const separator = useSeparator ? `\n\n---\n\n` : `\n\n`;
                         const errorBlock = pageNum === 1
                             ? `> [!ERROR] 第 ${pageNum} 页渲染失败: ${errMsg}`
-                            : `\n\n---\n\n> [!ERROR] 第 ${pageNum} 页渲染失败: ${errMsg}`;
+                            : `${separator}> [!ERROR] 第 ${pageNum} 页渲染失败: ${errMsg}`;
 
                         const finalNewContent = currentContent + errorBlock;
 
@@ -801,7 +808,7 @@ export class ConversionService {
      * 创建输出文件并返回路径
      */
     private getAvailableOutputPath(outputDir: string, fileName: string): string {
-        const initialPath = `${outputDir}/${fileName}`;
+        const initialPath = outputDir ? `${outputDir}/${fileName}` : fileName;
         if (!this.app.vault.getAbstractFileByPath(initialPath)) {
             return initialPath;
         }
@@ -811,10 +818,10 @@ export class ConversionService {
         const ext = dotIndex > 0 ? fileName.slice(dotIndex) : "";
 
         let counter = 1;
-        let candidate = `${outputDir}/${baseName} (${counter})${ext}`;
+        let candidate = outputDir ? `${outputDir}/${baseName} (${counter})${ext}` : `${baseName} (${counter})${ext}`;
         while (this.app.vault.getAbstractFileByPath(candidate)) {
             counter++;
-            candidate = `${outputDir}/${baseName} (${counter})${ext}`;
+            candidate = outputDir ? `${outputDir}/${baseName} (${counter})${ext}` : `${baseName} (${counter})${ext}`;
         }
         return candidate;
     }
@@ -822,16 +829,12 @@ export class ConversionService {
     private async createOutputFile(fileData: FileData, initialContent: string): Promise<string> {
         const { outputSettings } = this.settings;
 
-        // 确定输出目录
-        let outputDir = outputSettings.outputDir;
-        if (!outputDir.startsWith("/")) {
-            outputDir = "/" + outputDir;
-        }
-
-        // 确保输出目录存在
-        const outputFolder = this.app.vault.getAbstractFileByPath(outputDir.slice(1));
-        if (!outputFolder) {
-            await this.app.vault.createFolder(outputDir.slice(1));
+        const outputDir = (outputSettings.outputDir || "").trim().replace(/^\/+/, "").replace(/\/+$/, "");
+        if (outputDir) {
+            const outputFolder = this.app.vault.getAbstractFileByPath(outputDir);
+            if (!outputFolder) {
+                await this.app.vault.createFolder(outputDir);
+            }
         }
 
         // 确定输出文件名
@@ -845,7 +848,7 @@ export class ConversionService {
         }
 
         // 构建完整输出路径
-        const outputPath = this.getAvailableOutputPath(outputDir.slice(1), outputFileName);
+        const outputPath = this.getAvailableOutputPath(outputDir, outputFileName);
         await this.app.vault.create(outputPath, initialContent);
 
         return outputPath;
@@ -858,16 +861,12 @@ export class ConversionService {
     ): Promise<string> {
         const { outputSettings } = this.settings;
 
-        // 确定输出目录
-        let outputDir = outputSettings.outputDir;
-        if (!outputDir.startsWith("/")) {
-            outputDir = "/" + outputDir;
-        }
-
-        // 确保输出目录存在
-        const outputFolder = this.app.vault.getAbstractFileByPath(outputDir.slice(1));
-        if (!outputFolder) {
-            await this.app.vault.createFolder(outputDir.slice(1));
+        const outputDir = (outputSettings.outputDir || "").trim().replace(/^\/+/, "").replace(/\/+$/, "");
+        if (outputDir) {
+            const outputFolder = this.app.vault.getAbstractFileByPath(outputDir);
+            if (!outputFolder) {
+                await this.app.vault.createFolder(outputDir);
+            }
         }
 
         // 确定输出文件名
@@ -888,7 +887,7 @@ export class ConversionService {
         }
 
         // 构建完整输出路径
-        const outputPath = this.getAvailableOutputPath(outputDir.slice(1), outputFileName);
+        const outputPath = this.getAvailableOutputPath(outputDir, outputFileName);
 
         // 生成文件内容：标题 + 自定义内容 + markdown
         const fileName = fileData.name.replace(/\.[^/.]+$/, "");
@@ -909,6 +908,15 @@ export class ConversionService {
 
     validateConfig(): boolean {
         return this.aiService.validateConfig();
+    }
+
+    static postProcessConvertedMarkdown(markdown: string, settings: PluginSettings): string {
+        let out = markdown || "";
+        if (settings.outputSettings?.removePageHeadings) {
+            out = out.replace(/^\s*#{1,6}\s*Page\s*\d+\s*(?:[:：-]\s*)?$/gmi, "");
+            out = out.replace(/\n{3,}/g, "\n\n").trim();
+        }
+        return out.trim();
     }
 
     static getSupportedFileTypes(): string[] {

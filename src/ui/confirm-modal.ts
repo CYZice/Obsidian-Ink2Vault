@@ -17,6 +17,12 @@ type ConfirmOptions = {
     filePaths?: string[];
     folderPath?: string;
     settings: PluginSettings;
+    onApplyOutputSettings?: (outputSettings: {
+        outputDir: string;
+        keepOriginalName: boolean;
+        outputExtension: string;
+        autoOpen: boolean;
+    }) => void | Promise<void>;
     onConfirm: (result: ConfirmResult) => void | Promise<void>;
 };
 
@@ -36,10 +42,23 @@ export class ConfirmConversionModal extends Modal {
     private pdfInfoEl: HTMLElement | null = null;
     private estimateEl: HTMLElement | null = null;
     private outputInfoEl: HTMLElement | null = null;
+    private draftOutputSettings: {
+        outputDir: string;
+        keepOriginalName: boolean;
+        outputExtension: string;
+        autoOpen: boolean;
+    };
 
     constructor(app: App, options: ConfirmOptions) {
         super(app);
         this.options = options;
+        const s = options.settings.outputSettings;
+        this.draftOutputSettings = {
+            outputDir: s.outputDir || "",
+            keepOriginalName: !!s.keepOriginalName,
+            outputExtension: s.outputExtension || "md",
+            autoOpen: !!s.autoOpen
+        };
         this.modalEl.addClass("hand-markdown-ai-modal");
         this.titleEl.setText("确认转换");
     }
@@ -94,8 +113,8 @@ export class ConfirmConversionModal extends Modal {
 
         const outputSection = contentEl.createDiv({ attr: { style: "margin-bottom: 12px;" } });
         outputSection.createEl("div", { text: "输出设置", attr: { style: "margin-bottom: 6px; font-weight:600;" } });
-        this.outputInfoEl = outputSection.createDiv({ attr: { style: "font-size: 12px; opacity:.85; display:flex; flex-direction:column; gap:4px;" } });
-        this.renderOutputInfo();
+        this.outputInfoEl = outputSection.createDiv({ attr: { style: "font-size: 12px; display:flex; flex-direction:column; gap:8px;" } });
+        this.renderOutputControls();
 
         const estimateSection = contentEl.createDiv({ attr: { style: "margin-bottom: 12px;" } });
         estimateSection.createEl("div", { text: "成本预估", attr: { style: "margin-bottom: 6px; font-weight:600;" } });
@@ -110,6 +129,14 @@ export class ConfirmConversionModal extends Modal {
         this.confirmBtn.onclick = async () => {
             const result = this.buildResult();
             if (!result) return;
+            const applied = this.applyDraftOutputSettings();
+            try {
+                await Promise.resolve(this.options.onApplyOutputSettings?.(applied));
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                new Notice(`保存输出设置失败: ${errorMessage}`, 5000);
+                return;
+            }
             this.close();
             Promise.resolve(this.options.onConfirm(result)).catch((error) => {
                 const errorMessage = error instanceof Error ? error.message : String(error);
@@ -223,21 +250,93 @@ export class ConfirmConversionModal extends Modal {
         this.refreshEstimate();
     }
 
-    private renderOutputInfo() {
+    private renderOutputControls() {
         if (!this.outputInfoEl) return;
-        const { outputSettings } = this.options.settings;
         this.outputInfoEl.empty();
-        const outputDir = (outputSettings.outputDir || "").trim();
-        const outputDirText = outputDir ? outputDir : "Vault 根目录";
-        const namingText = outputSettings.keepOriginalName ? "保持原文件名" : "优先AI标题，其次时间戳";
-        this.outputInfoEl.createDiv({ text: `输出目录：${outputDirText}` });
-        this.outputInfoEl.createDiv({ text: `文件扩展名：.${outputSettings.outputExtension}` });
-        this.outputInfoEl.createDiv({ text: `命名策略：${namingText}` });
-        this.outputInfoEl.createDiv({ text: "同名处理：自动加序号，不覆盖" });
-        this.outputInfoEl.createDiv({ text: `自动打开：${outputSettings.autoOpen ? "是" : "否"}` });
+
+        const rowStyle = "display:flex; align-items:center; gap:8px;";
+        const labelStyle = "width: 90px; opacity:.85;";
+        const inputStyle = "flex:1; min-width: 120px;";
+
+        const dirRow = this.outputInfoEl.createDiv({ attr: { style: rowStyle } });
+        dirRow.createDiv({ text: "输出目录", attr: { style: labelStyle } });
+        const dirInput = dirRow.createEl("input", {
+            type: "text",
+            value: this.draftOutputSettings.outputDir,
+            placeholder: "留空 = Vault 根目录",
+            attr: { style: inputStyle }
+        }) as HTMLInputElement;
+        dirInput.addEventListener("input", () => {
+            this.draftOutputSettings.outputDir = dirInput.value;
+        });
+
+        const extRow = this.outputInfoEl.createDiv({ attr: { style: rowStyle } });
+        extRow.createDiv({ text: "文件扩展名", attr: { style: labelStyle } });
+        const extInput = extRow.createEl("input", {
+            type: "text",
+            value: this.draftOutputSettings.outputExtension,
+            placeholder: "md",
+            attr: { style: "width: 120px;" }
+        }) as HTMLInputElement;
+        const syncExt = () => {
+            const next = this.sanitizeExtension(extInput.value);
+            this.draftOutputSettings.outputExtension = next;
+            extInput.value = next;
+        };
+        extInput.addEventListener("blur", syncExt);
+        extInput.addEventListener("change", syncExt);
+
+        const namingRow = this.outputInfoEl.createDiv({ attr: { style: rowStyle } });
+        namingRow.createDiv({ text: "命名策略", attr: { style: labelStyle } });
+        const namingSelect = namingRow.createEl("select", { attr: { style: inputStyle } }) as HTMLSelectElement;
+        namingSelect.createEl("option", { value: "original", text: "保持原文件名" });
+        namingSelect.createEl("option", { value: "ai", text: "优先AI标题，其次时间戳" });
+        namingSelect.value = this.draftOutputSettings.keepOriginalName ? "original" : "ai";
+        namingSelect.addEventListener("change", () => {
+            this.draftOutputSettings.keepOriginalName = namingSelect.value === "original";
+        });
+
+        const autoOpenRow = this.outputInfoEl.createDiv({ attr: { style: rowStyle } });
+        autoOpenRow.createDiv({ text: "自动打开", attr: { style: labelStyle } });
+        const autoOpenCheckbox = autoOpenRow.createEl("input", { type: "checkbox" }) as HTMLInputElement;
+        autoOpenCheckbox.checked = this.draftOutputSettings.autoOpen;
+        autoOpenRow.createEl("label", { text: "转换后打开文件", attr: { style: "opacity:.85;" } });
+        autoOpenCheckbox.addEventListener("change", () => {
+            this.draftOutputSettings.autoOpen = autoOpenCheckbox.checked;
+        });
+
+        const collisionRow = this.outputInfoEl.createDiv({ attr: { style: "opacity:.85;" } });
+        collisionRow.setText("同名处理：自动加序号，不覆盖");
+
         if (this.options.mode === "merge") {
-            this.outputInfoEl.createDiv({ text: "合并输出：首个文件名 + -merged" });
+            this.outputInfoEl.createDiv({ text: "合并输出：首个文件名 + -merged", attr: { style: "opacity:.85;" } });
         }
+    }
+
+    private sanitizeOutputDir(dir: string): string {
+        const trimmed = (dir || "").trim();
+        if (!trimmed) return "";
+        return trimmed.replace(/^\/+/, "").replace(/\/+$/, "");
+    }
+
+    private sanitizeExtension(ext: string): string {
+        const trimmed = (ext || "").trim().replace(/^\./, "");
+        const cleaned = trimmed.replace(/[^a-zA-Z0-9]+/g, "").toLowerCase();
+        return cleaned || "md";
+    }
+
+    private applyDraftOutputSettings(): { outputDir: string; keepOriginalName: boolean; outputExtension: string; autoOpen: boolean } {
+        const applied = {
+            outputDir: this.sanitizeOutputDir(this.draftOutputSettings.outputDir),
+            keepOriginalName: !!this.draftOutputSettings.keepOriginalName,
+            outputExtension: this.sanitizeExtension(this.draftOutputSettings.outputExtension),
+            autoOpen: !!this.draftOutputSettings.autoOpen
+        };
+        this.options.settings.outputSettings.outputDir = applied.outputDir;
+        this.options.settings.outputSettings.keepOriginalName = applied.keepOriginalName;
+        this.options.settings.outputSettings.outputExtension = applied.outputExtension;
+        this.options.settings.outputSettings.autoOpen = applied.autoOpen;
+        return applied;
     }
 
     private refreshEstimate() {

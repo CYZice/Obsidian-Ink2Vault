@@ -70,7 +70,9 @@ export const DEFAULT_SETTINGS: PluginSettings = {
         keepOriginalName: true,
         outputExtension: "md",
         autoOpen: true,
-        contentAfterTitle: "" // 默认为空，不插入任何内容
+        contentAfterTitle: "", // 默认为空，不插入任何内容
+        insertPageSeparator: false,
+        removePageHeadings: false
     },
 
     advancedSettings: {
@@ -91,7 +93,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     }
 };
 
-export const DEFAULT_CONVERSION_PROMPT = `你是一个面向 Obsidian 的 OCR 与笔记结构化助手。
+export const DEFAULT_CONVERSION_PROMPT = `你是一个面向 markdown 的 OCR 与笔记结构化助手。
 
 任务：把输入图片中的内容转换成干净、结构化的 Markdown。
 

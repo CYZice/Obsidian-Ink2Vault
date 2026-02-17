@@ -496,9 +496,10 @@ export default class HandMarkdownAIPlugin extends Plugin {
             const result = await this.aiService.convertFile(fileData, prompt);
 
             if (result.success && result.markdown) {
+                const processedMarkdown = ConversionService.postProcessConvertedMarkdown(result.markdown, this.settings);
                 // 在链接下方插入转换结果
                 const insertLine = lineNum + 1;
-                const insertText = `\n${result.markdown}\n`;
+                const insertText = `\n${processedMarkdown}\n`;
 
                 editor.replaceRange(insertText, { line: insertLine, ch: 0 });
 
@@ -662,6 +663,13 @@ export default class HandMarkdownAIPlugin extends Plugin {
             filePaths: options.filePaths,
             folderPath: options.folderPath,
             settings: this.settings,
+            onApplyOutputSettings: async (outputSettings) => {
+                this.settings.outputSettings.outputDir = outputSettings.outputDir;
+                this.settings.outputSettings.keepOriginalName = outputSettings.keepOriginalName;
+                this.settings.outputSettings.outputExtension = outputSettings.outputExtension;
+                this.settings.outputSettings.autoOpen = outputSettings.autoOpen;
+                await this.saveSettings();
+            },
             onConfirm: async ({ filePaths, pdfPages }) => {
                 if (options.mode === "merge") {
                     await this.convertFilesMerged(filePaths);

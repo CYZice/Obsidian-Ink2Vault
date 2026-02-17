@@ -120,8 +120,10 @@ var init_defaults = __esm({
         keepOriginalName: true,
         outputExtension: "md",
         autoOpen: true,
-        contentAfterTitle: ""
+        contentAfterTitle: "",
         // 默认为空，不插入任何内容
+        insertPageSeparator: false,
+        removePageHeadings: false
       },
       advancedSettings: {
         timeout: 3e4,
@@ -139,7 +141,7 @@ var init_defaults = __esm({
         ollama: "https://ollama.com/"
       }
     };
-    DEFAULT_CONVERSION_PROMPT = `\u4F60\u662F\u4E00\u4E2A\u9762\u5411 Obsidian \u7684 OCR \u4E0E\u7B14\u8BB0\u7ED3\u6784\u5316\u52A9\u624B\u3002
+    DEFAULT_CONVERSION_PROMPT = `\u4F60\u662F\u4E00\u4E2A\u9762\u5411 markdown \u7684 OCR \u4E0E\u7B14\u8BB0\u7ED3\u6784\u5316\u52A9\u624B\u3002
 
 \u4EFB\u52A1\uFF1A\u628A\u8F93\u5165\u56FE\u7247\u4E2D\u7684\u5185\u5BB9\u8F6C\u6362\u6210\u5E72\u51C0\u3001\u7ED3\u6784\u5316\u7684 Markdown\u3002
 
@@ -1907,14 +1909,16 @@ var ConversionService = class {
       const prompt2 = this.getConversionPrompt();
       new import_obsidian5.Notice(`\u6B63\u5728\u4F7F\u7528 AI \u8F6C\u6362\u6587\u4EF6...`, 3e3);
       const conversionResult = await this.aiService.convertFile(fileData, prompt2);
+      const processedMarkdown = ConversionService.postProcessConvertedMarkdown(conversionResult.markdown, this.settings);
       const outputPath = await this.saveConversionResult(
         fileData,
-        conversionResult.markdown,
-        this.extractSuggestedFilename(conversionResult.markdown)
+        processedMarkdown,
+        this.extractSuggestedFilename(processedMarkdown)
       );
       new import_obsidian5.Notice(`\u8F6C\u6362\u6210\u529F\uFF01\u8017\u65F6: ${conversionResult.duration}ms`, 3e3);
       return {
         ...conversionResult,
+        markdown: processedMarkdown,
         outputPath,
         sourcePath: filePath
       };
@@ -2037,15 +2041,16 @@ ${this.settings.outputSettings.contentAfterTitle ? "\n" + this.settings.outputSe
           while (jobResults.has(nextWriteId)) {
             const { result, job } = jobResults.get(nextWriteId);
             const currentContent = await this.app.vault.read(outputFile);
-            const appendContent = result.success !== false ? nextWriteId === 1 ? `${result.markdown}` : `
+            const useSeparator = this.settings.outputSettings?.insertPageSeparator ?? false;
+            const separator = useSeparator ? `
 
 ---
 
-${result.markdown}` : nextWriteId === 1 ? `> [!ERROR] \u8F6C\u6362\u5931\u8D25: ${result.error}` : `
+` : `
 
----
-
-> [!ERROR] \u8F6C\u6362\u5931\u8D25: ${result.error}`;
+`;
+            const processedMarkdown = ConversionService.postProcessConvertedMarkdown(result.markdown, this.settings);
+            const appendContent = result.success !== false ? nextWriteId === 1 ? `${processedMarkdown}` : `${separator}${processedMarkdown}` : nextWriteId === 1 ? `> [!ERROR] \u8F6C\u6362\u5931\u8D25: ${result.error}` : `${separator}> [!ERROR] \u8F6C\u6362\u5931\u8D25: ${result.error}`;
             if (result.success !== false) {
               successPages += job.images.length;
             } else {
@@ -2128,11 +2133,15 @@ ${result.markdown}` : nextWriteId === 1 ? `> [!ERROR] \u8F6C\u6362\u5931\u8D25: 
             errMsg = pageError instanceof Error ? pageError.message : String(pageError);
             console.error(`\u7B2C ${pageNum} \u9875\u8F6C\u6362\u5931\u8D25:`, errMsg);
             const currentContent = await this.app.vault.read(outputFile);
-            const errorBlock = pageNum === 1 ? `> [!ERROR] \u7B2C ${pageNum} \u9875\u6E32\u67D3\u5931\u8D25: ${errMsg}` : `
+            const useSeparator = this.settings.outputSettings?.insertPageSeparator ?? false;
+            const separator = useSeparator ? `
 
 ---
 
-> [!ERROR] \u7B2C ${pageNum} \u9875\u6E32\u67D3\u5931\u8D25: ${errMsg}`;
+` : `
+
+`;
+            const errorBlock = pageNum === 1 ? `> [!ERROR] \u7B2C ${pageNum} \u9875\u6E32\u67D3\u5931\u8D25: ${errMsg}` : `${separator}> [!ERROR] \u7B2C ${pageNum} \u9875\u6E32\u67D3\u5931\u8D25: ${errMsg}`;
             const finalNewContent = currentContent + errorBlock;
             await this.app.vault.modify(outputFile, finalNewContent);
           } finally {
@@ -2529,7 +2538,7 @@ ${res.markdown}`;
    * 创建输出文件并返回路径
    */
   getAvailableOutputPath(outputDir, fileName) {
-    const initialPath = `${outputDir}/${fileName}`;
+    const initialPath = outputDir ? `${outputDir}/${fileName}` : fileName;
     if (!this.app.vault.getAbstractFileByPath(initialPath)) {
       return initialPath;
     }
@@ -2537,22 +2546,21 @@ ${res.markdown}`;
     const baseName = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
     const ext = dotIndex > 0 ? fileName.slice(dotIndex) : "";
     let counter = 1;
-    let candidate = `${outputDir}/${baseName} (${counter})${ext}`;
+    let candidate = outputDir ? `${outputDir}/${baseName} (${counter})${ext}` : `${baseName} (${counter})${ext}`;
     while (this.app.vault.getAbstractFileByPath(candidate)) {
       counter++;
-      candidate = `${outputDir}/${baseName} (${counter})${ext}`;
+      candidate = outputDir ? `${outputDir}/${baseName} (${counter})${ext}` : `${baseName} (${counter})${ext}`;
     }
     return candidate;
   }
   async createOutputFile(fileData, initialContent) {
     const { outputSettings } = this.settings;
-    let outputDir = outputSettings.outputDir;
-    if (!outputDir.startsWith("/")) {
-      outputDir = "/" + outputDir;
-    }
-    const outputFolder = this.app.vault.getAbstractFileByPath(outputDir.slice(1));
-    if (!outputFolder) {
-      await this.app.vault.createFolder(outputDir.slice(1));
+    const outputDir = (outputSettings.outputDir || "").trim().replace(/^\/+/, "").replace(/\/+$/, "");
+    if (outputDir) {
+      const outputFolder = this.app.vault.getAbstractFileByPath(outputDir);
+      if (!outputFolder) {
+        await this.app.vault.createFolder(outputDir);
+      }
     }
     let outputFileName;
     if (outputSettings.keepOriginalName) {
@@ -2562,19 +2570,18 @@ ${res.markdown}`;
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
       outputFileName = `converted-${timestamp}.${outputSettings.outputExtension}`;
     }
-    const outputPath = this.getAvailableOutputPath(outputDir.slice(1), outputFileName);
+    const outputPath = this.getAvailableOutputPath(outputDir, outputFileName);
     await this.app.vault.create(outputPath, initialContent);
     return outputPath;
   }
   async saveConversionResult(fileData, markdown, suggestedFilename) {
     const { outputSettings } = this.settings;
-    let outputDir = outputSettings.outputDir;
-    if (!outputDir.startsWith("/")) {
-      outputDir = "/" + outputDir;
-    }
-    const outputFolder = this.app.vault.getAbstractFileByPath(outputDir.slice(1));
-    if (!outputFolder) {
-      await this.app.vault.createFolder(outputDir.slice(1));
+    const outputDir = (outputSettings.outputDir || "").trim().replace(/^\/+/, "").replace(/\/+$/, "");
+    if (outputDir) {
+      const outputFolder = this.app.vault.getAbstractFileByPath(outputDir);
+      if (!outputFolder) {
+        await this.app.vault.createFolder(outputDir);
+      }
     }
     let outputFileName;
     if (outputSettings.keepOriginalName) {
@@ -2586,7 +2593,7 @@ ${res.markdown}`;
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
       outputFileName = `converted-${timestamp}.${outputSettings.outputExtension}`;
     }
-    const outputPath = this.getAvailableOutputPath(outputDir.slice(1), outputFileName);
+    const outputPath = this.getAvailableOutputPath(outputDir, outputFileName);
     const fileName = fileData.name.replace(/\.[^/.]+$/, "");
     const titleAndContent = `# ${fileName}
 ${outputSettings.contentAfterTitle ? "\n" + outputSettings.contentAfterTitle + "\n" : "\n"}${markdown}`;
@@ -2601,6 +2608,14 @@ ${outputSettings.contentAfterTitle ? "\n" + outputSettings.contentAfterTitle + "
   }
   validateConfig() {
     return this.aiService.validateConfig();
+  }
+  static postProcessConvertedMarkdown(markdown, settings) {
+    let out = markdown || "";
+    if (settings.outputSettings?.removePageHeadings) {
+      out = out.replace(/^\s*#{1,6}\s*Page\s*\d+\s*(?:[:：-]\s*)?$/gmi, "");
+      out = out.replace(/\n{3,}/g, "\n\n").trim();
+    }
+    return out.trim();
   }
   static getSupportedFileTypes() {
     return [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".pdf"];
@@ -2882,9 +2897,17 @@ var ConfirmConversionModal = class extends import_obsidian7.Modal {
   pdfInfoEl = null;
   estimateEl = null;
   outputInfoEl = null;
+  draftOutputSettings;
   constructor(app, options) {
     super(app);
     this.options = options;
+    const s = options.settings.outputSettings;
+    this.draftOutputSettings = {
+      outputDir: s.outputDir || "",
+      keepOriginalName: !!s.keepOriginalName,
+      outputExtension: s.outputExtension || "md",
+      autoOpen: !!s.autoOpen
+    };
     this.modalEl.addClass("hand-markdown-ai-modal");
     this.titleEl.setText("\u786E\u8BA4\u8F6C\u6362");
   }
@@ -2929,8 +2952,8 @@ var ConfirmConversionModal = class extends import_obsidian7.Modal {
     this.togglePdfSection();
     const outputSection = contentEl.createDiv({ attr: { style: "margin-bottom: 12px;" } });
     outputSection.createEl("div", { text: "\u8F93\u51FA\u8BBE\u7F6E", attr: { style: "margin-bottom: 6px; font-weight:600;" } });
-    this.outputInfoEl = outputSection.createDiv({ attr: { style: "font-size: 12px; opacity:.85; display:flex; flex-direction:column; gap:4px;" } });
-    this.renderOutputInfo();
+    this.outputInfoEl = outputSection.createDiv({ attr: { style: "font-size: 12px; display:flex; flex-direction:column; gap:8px;" } });
+    this.renderOutputControls();
     const estimateSection = contentEl.createDiv({ attr: { style: "margin-bottom: 12px;" } });
     estimateSection.createEl("div", { text: "\u6210\u672C\u9884\u4F30", attr: { style: "margin-bottom: 6px; font-weight:600;" } });
     this.estimateEl = estimateSection.createDiv({ attr: { style: "font-size: 12px; opacity:.85; display:flex; flex-direction:column; gap:4px;" } });
@@ -2943,6 +2966,14 @@ var ConfirmConversionModal = class extends import_obsidian7.Modal {
       const result = this.buildResult();
       if (!result)
         return;
+      const applied = this.applyDraftOutputSettings();
+      try {
+        await Promise.resolve(this.options.onApplyOutputSettings?.(applied));
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        new import_obsidian7.Notice(`\u4FDD\u5B58\u8F93\u51FA\u8BBE\u7F6E\u5931\u8D25: ${errorMessage}`, 5e3);
+        return;
+      }
       this.close();
       Promise.resolve(this.options.onConfirm(result)).catch((error) => {
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -3059,22 +3090,85 @@ var ConfirmConversionModal = class extends import_obsidian7.Modal {
     }
     this.refreshEstimate();
   }
-  renderOutputInfo() {
+  renderOutputControls() {
     if (!this.outputInfoEl)
       return;
-    const { outputSettings } = this.options.settings;
     this.outputInfoEl.empty();
-    const outputDir = (outputSettings.outputDir || "").trim();
-    const outputDirText = outputDir ? outputDir : "Vault \u6839\u76EE\u5F55";
-    const namingText = outputSettings.keepOriginalName ? "\u4FDD\u6301\u539F\u6587\u4EF6\u540D" : "\u4F18\u5148AI\u6807\u9898\uFF0C\u5176\u6B21\u65F6\u95F4\u6233";
-    this.outputInfoEl.createDiv({ text: `\u8F93\u51FA\u76EE\u5F55\uFF1A${outputDirText}` });
-    this.outputInfoEl.createDiv({ text: `\u6587\u4EF6\u6269\u5C55\u540D\uFF1A.${outputSettings.outputExtension}` });
-    this.outputInfoEl.createDiv({ text: `\u547D\u540D\u7B56\u7565\uFF1A${namingText}` });
-    this.outputInfoEl.createDiv({ text: "\u540C\u540D\u5904\u7406\uFF1A\u81EA\u52A8\u52A0\u5E8F\u53F7\uFF0C\u4E0D\u8986\u76D6" });
-    this.outputInfoEl.createDiv({ text: `\u81EA\u52A8\u6253\u5F00\uFF1A${outputSettings.autoOpen ? "\u662F" : "\u5426"}` });
+    const rowStyle = "display:flex; align-items:center; gap:8px;";
+    const labelStyle = "width: 90px; opacity:.85;";
+    const inputStyle = "flex:1; min-width: 120px;";
+    const dirRow = this.outputInfoEl.createDiv({ attr: { style: rowStyle } });
+    dirRow.createDiv({ text: "\u8F93\u51FA\u76EE\u5F55", attr: { style: labelStyle } });
+    const dirInput = dirRow.createEl("input", {
+      type: "text",
+      value: this.draftOutputSettings.outputDir,
+      placeholder: "\u7559\u7A7A = Vault \u6839\u76EE\u5F55",
+      attr: { style: inputStyle }
+    });
+    dirInput.addEventListener("input", () => {
+      this.draftOutputSettings.outputDir = dirInput.value;
+    });
+    const extRow = this.outputInfoEl.createDiv({ attr: { style: rowStyle } });
+    extRow.createDiv({ text: "\u6587\u4EF6\u6269\u5C55\u540D", attr: { style: labelStyle } });
+    const extInput = extRow.createEl("input", {
+      type: "text",
+      value: this.draftOutputSettings.outputExtension,
+      placeholder: "md",
+      attr: { style: "width: 120px;" }
+    });
+    const syncExt = () => {
+      const next = this.sanitizeExtension(extInput.value);
+      this.draftOutputSettings.outputExtension = next;
+      extInput.value = next;
+    };
+    extInput.addEventListener("blur", syncExt);
+    extInput.addEventListener("change", syncExt);
+    const namingRow = this.outputInfoEl.createDiv({ attr: { style: rowStyle } });
+    namingRow.createDiv({ text: "\u547D\u540D\u7B56\u7565", attr: { style: labelStyle } });
+    const namingSelect = namingRow.createEl("select", { attr: { style: inputStyle } });
+    namingSelect.createEl("option", { value: "original", text: "\u4FDD\u6301\u539F\u6587\u4EF6\u540D" });
+    namingSelect.createEl("option", { value: "ai", text: "\u4F18\u5148AI\u6807\u9898\uFF0C\u5176\u6B21\u65F6\u95F4\u6233" });
+    namingSelect.value = this.draftOutputSettings.keepOriginalName ? "original" : "ai";
+    namingSelect.addEventListener("change", () => {
+      this.draftOutputSettings.keepOriginalName = namingSelect.value === "original";
+    });
+    const autoOpenRow = this.outputInfoEl.createDiv({ attr: { style: rowStyle } });
+    autoOpenRow.createDiv({ text: "\u81EA\u52A8\u6253\u5F00", attr: { style: labelStyle } });
+    const autoOpenCheckbox = autoOpenRow.createEl("input", { type: "checkbox" });
+    autoOpenCheckbox.checked = this.draftOutputSettings.autoOpen;
+    autoOpenRow.createEl("label", { text: "\u8F6C\u6362\u540E\u6253\u5F00\u6587\u4EF6", attr: { style: "opacity:.85;" } });
+    autoOpenCheckbox.addEventListener("change", () => {
+      this.draftOutputSettings.autoOpen = autoOpenCheckbox.checked;
+    });
+    const collisionRow = this.outputInfoEl.createDiv({ attr: { style: "opacity:.85;" } });
+    collisionRow.setText("\u540C\u540D\u5904\u7406\uFF1A\u81EA\u52A8\u52A0\u5E8F\u53F7\uFF0C\u4E0D\u8986\u76D6");
     if (this.options.mode === "merge") {
-      this.outputInfoEl.createDiv({ text: "\u5408\u5E76\u8F93\u51FA\uFF1A\u9996\u4E2A\u6587\u4EF6\u540D + -merged" });
+      this.outputInfoEl.createDiv({ text: "\u5408\u5E76\u8F93\u51FA\uFF1A\u9996\u4E2A\u6587\u4EF6\u540D + -merged", attr: { style: "opacity:.85;" } });
     }
+  }
+  sanitizeOutputDir(dir) {
+    const trimmed = (dir || "").trim();
+    if (!trimmed)
+      return "";
+    return trimmed.replace(/^\/+/, "").replace(/\/+$/, "");
+  }
+  sanitizeExtension(ext) {
+    const trimmed = (ext || "").trim().replace(/^\./, "");
+    const cleaned = trimmed.replace(/[^a-zA-Z0-9]+/g, "").toLowerCase();
+    return cleaned || "md";
+  }
+  applyDraftOutputSettings() {
+    const applied = {
+      outputDir: this.sanitizeOutputDir(this.draftOutputSettings.outputDir),
+      keepOriginalName: !!this.draftOutputSettings.keepOriginalName,
+      outputExtension: this.sanitizeExtension(this.draftOutputSettings.outputExtension),
+      autoOpen: !!this.draftOutputSettings.autoOpen
+    };
+    this.options.settings.outputSettings.outputDir = applied.outputDir;
+    this.options.settings.outputSettings.keepOriginalName = applied.keepOriginalName;
+    this.options.settings.outputSettings.outputExtension = applied.outputExtension;
+    this.options.settings.outputSettings.autoOpen = applied.autoOpen;
+    return applied;
   }
   refreshEstimate() {
     if (!this.estimateEl)
@@ -3272,6 +3366,7 @@ var ConfirmConversionModal = class extends import_obsidian7.Modal {
 // src/ui/simple-settings-tab.ts
 var import_obsidian8 = require("obsidian");
 init_constants();
+init_defaults();
 var ModelInputSuggest = class {
   inputEl;
   popup = null;
@@ -4024,6 +4119,18 @@ var SimpleSettingsTab = class extends import_obsidian8.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
+    new import_obsidian8.Setting(containerEl).setName("\u63D2\u5165\u5206\u5272\u7EBF").setDesc("\u5728 PDF \u591A\u6279\u6B21\u8F93\u51FA\u4E4B\u95F4\u63D2\u5165 --- \u5206\u5272\u7EBF").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.outputSettings.insertPageSeparator ?? false).onChange(async (value) => {
+        this.plugin.settings.outputSettings.insertPageSeparator = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian8.Setting(containerEl).setName("\u79FB\u9664 Page \u6807\u9898").setDesc("\u5728 AI \u8F93\u51FA\u4E2D\u79FB\u9664 # Page N / ## Page N \u6807\u9898\u884C").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.outputSettings.removePageHeadings ?? false).onChange(async (value) => {
+        this.plugin.settings.outputSettings.removePageHeadings = value;
+        await this.plugin.saveSettings();
+      })
+    );
     new import_obsidian8.Setting(containerEl).setName("\u6807\u9898\u4E0B\u65B9\u63D2\u5165\u5185\u5BB9").setDesc("\u5728 Markdown \u6807\u9898\u4E0B\u65B9\u63D2\u5165\u7684\u81EA\u5B9A\u4E49\u5185\u5BB9\uFF08\u652F\u6301 Markdown \u683C\u5F0F\uFF0C\u7559\u7A7A\u5219\u4E0D\u63D2\u5165\uFF09").addTextArea((text) => {
       text.setPlaceholder("\u4F8B\u5982\uFF1A> \u6765\u81EA PDF \u7684\u8F6C\u6362\u5185\u5BB9\\n\u6216\uFF1A[\u8FD4\u56DE\u76EE\u5F55](#\u76EE\u5F55)").setValue(this.plugin.settings.outputSettings.contentAfterTitle || "").setDisabled(false).onChange(async (value) => {
         this.plugin.settings.outputSettings.contentAfterTitle = value;
@@ -4039,7 +4146,7 @@ var SimpleSettingsTab = class extends import_obsidian8.PluginSettingTab {
   }
   addPromptSettings(containerEl) {
     containerEl.createEl("h3", { text: "\u270D\uFE0F \u8F6C\u6362\u63D0\u793A\u8BCD" });
-    const defaultPrompt = "Take the handwritten notes from this image and convert them into a clean, well-structured Markdown file. Pay attention to headings, lists, and any other formatting. Use latex for mathematical equations. For latex use the $$ syntax. Do not skip anything from the original text. Just give me the markdown, do not include other text in the response apart from the markdown file.";
+    const defaultPrompt = DEFAULT_CONVERSION_PROMPT;
     new import_obsidian8.Setting(containerEl).setName("\u81EA\u5B9A\u4E49\u63D0\u793A\u8BCD").setDesc("\u544A\u8BC9 AI \u5982\u4F55\u8F6C\u6362\u4F60\u7684\u7B14\u8BB0\uFF08\u7559\u7A7A\u4F7F\u7528\u9ED8\u8BA4\uFF09").addTextArea((text) => {
       text.setPlaceholder(defaultPrompt).setValue(this.plugin.settings.conversionPrompt || "").setDisabled(false).onChange(async (value) => {
         this.plugin.settings.conversionPrompt = value;
@@ -4585,9 +4692,10 @@ var HandMarkdownAIPlugin = class extends import_obsidian10.Plugin {
       const prompt2 = this.settings.conversionPrompt || "\u5C06\u6587\u4EF6\u4E2D\u7684\u5185\u5BB9\u8F6C\u6362\u4E3AMarkdown\u683C\u5F0F";
       const result = await this.aiService.convertFile(fileData, prompt2);
       if (result.success && result.markdown) {
+        const processedMarkdown = ConversionService.postProcessConvertedMarkdown(result.markdown, this.settings);
         const insertLine = lineNum + 1;
         const insertText = `
-${result.markdown}
+${processedMarkdown}
 `;
         editor.replaceRange(insertText, { line: insertLine, ch: 0 });
         new import_obsidian10.Notice("\u8F6C\u6362\u6210\u529F\uFF01", 3e3);
@@ -4729,6 +4837,13 @@ ${result.markdown}
       filePaths: options.filePaths,
       folderPath: options.folderPath,
       settings: this.settings,
+      onApplyOutputSettings: async (outputSettings) => {
+        this.settings.outputSettings.outputDir = outputSettings.outputDir;
+        this.settings.outputSettings.keepOriginalName = outputSettings.keepOriginalName;
+        this.settings.outputSettings.outputExtension = outputSettings.outputExtension;
+        this.settings.outputSettings.autoOpen = outputSettings.autoOpen;
+        await this.saveSettings();
+      },
       onConfirm: async ({ filePaths, pdfPages }) => {
         if (options.mode === "merge") {
           await this.convertFilesMerged(filePaths);

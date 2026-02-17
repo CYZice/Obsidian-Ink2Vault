@@ -1,5 +1,6 @@
 import { App, FuzzySuggestModal, Modal, Notice, PluginSettingTab, Setting, TAbstractFile, TFolder, requestUrl, type RequestUrlParam } from "obsidian";
 import { MODEL_CATEGORIES } from "../constants";
+import { DEFAULT_CONVERSION_PROMPT } from "../defaults";
 import type HandMarkdownAIPlugin from "../main";
 import type { APIModelConfig, ModelCategory } from "../types";
 
@@ -974,6 +975,28 @@ export class SimpleSettingsTab extends PluginSettingTab {
             );
 
         new Setting(containerEl)
+            .setName("插入分割线")
+            .setDesc("在 PDF 多批次输出之间插入 --- 分割线")
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.outputSettings.insertPageSeparator ?? false)
+                .onChange(async (value) => {
+                    this.plugin.settings.outputSettings.insertPageSeparator = value;
+                    await this.plugin.saveSettings();
+                })
+            );
+
+        new Setting(containerEl)
+            .setName("移除 Page 标题")
+            .setDesc("在 AI 输出中移除 # Page N / ## Page N 标题行")
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.outputSettings.removePageHeadings ?? false)
+                .onChange(async (value) => {
+                    this.plugin.settings.outputSettings.removePageHeadings = value;
+                    await this.plugin.saveSettings();
+                })
+            );
+
+        new Setting(containerEl)
             .setName("标题下方插入内容")
             .setDesc("在 Markdown 标题下方插入的自定义内容（支持 Markdown 格式，留空则不插入）")
             .addTextArea(text => {
@@ -997,7 +1020,7 @@ export class SimpleSettingsTab extends PluginSettingTab {
     private addPromptSettings(containerEl: HTMLElement) {
         containerEl.createEl("h3", { text: "✍️ 转换提示词" });
 
-        const defaultPrompt = "Take the handwritten notes from this image and convert them into a clean, well-structured Markdown file. Pay attention to headings, lists, and any other formatting. Use latex for mathematical equations. For latex use the $$ syntax. Do not skip anything from the original text. Just give me the markdown, do not include other text in the response apart from the markdown file.";
+        const defaultPrompt = DEFAULT_CONVERSION_PROMPT;
 
         new Setting(containerEl)
             .setName("自定义提示词")

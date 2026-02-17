@@ -96,6 +96,8 @@ export interface OutputSettings {
     outputExtension: string;
     autoOpen: boolean;
     contentAfterTitle?: string; // 标题下方插入的自定义内容
+    insertPageSeparator?: boolean;
+    removePageHeadings?: boolean;
 }
 
 export interface AdvancedSettings {
