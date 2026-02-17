@@ -2943,8 +2943,12 @@ var ConfirmConversionModal = class extends import_obsidian7.Modal {
       const result = this.buildResult();
       if (!result)
         return;
-      await this.options.onConfirm(result);
       this.close();
+      Promise.resolve(this.options.onConfirm(result)).catch((error) => {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        new import_obsidian7.Notice(`\u5F00\u59CB\u8F6C\u6362\u5931\u8D25: ${errorMessage}`, 5e3);
+        console.error("Start conversion failed:", error);
+      });
     };
   }
   onClose() {

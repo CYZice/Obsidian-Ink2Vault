@@ -110,8 +110,12 @@ export class ConfirmConversionModal extends Modal {
         this.confirmBtn.onclick = async () => {
             const result = this.buildResult();
             if (!result) return;
-            await this.options.onConfirm(result);
             this.close();
+            Promise.resolve(this.options.onConfirm(result)).catch((error) => {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                new Notice(`开始转换失败: ${errorMessage}`, 5000);
+                console.error("Start conversion failed:", error);
+            });
         };
     }
 
