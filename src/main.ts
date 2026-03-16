@@ -371,10 +371,10 @@ export default class HandMarkdownAIPlugin extends Plugin {
      */
     private registerPreviewImageContextMenu() {
         this.registerDomEvent(document, "contextmenu", async (evt: MouseEvent) => {
-            // 只处理 markdown 预览视图下的图片
+            // 只处理 markdown 预览视图或实时预览（Live Preview）视图下的图片
             const img = evt.target as HTMLImageElement;
             if (!img || img.tagName !== "IMG") return;
-            const preview = img.closest(".markdown-preview-view");
+            const preview = img.closest(".markdown-preview-view") || img.closest(".markdown-source-view");
             if (!preview) return;
 
             // 获取 vault 内部图片路径

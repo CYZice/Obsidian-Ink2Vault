@@ -1,203 +1,123 @@
-# Hand Markdown AI
+<h1 align="center">Hand Markdown AI</h1>
 
-一个强大的 Obsidian 插件，可以将手写笔记（PDF、JPG、PNG）转换为 Markdown 格式。支持多种 AI 提供商（Gemini、Claude、OpenAI）。
+<p align="center"><b>Obsidian 手写笔记与多格式图像的智能 Markdown 转换插件</b></p>
 
-## 功能特性
+<p align="center">
+一个强大的 Obsidian 增强工具，通过大型语言模型（Gemini / Claude / OpenAI）将您的手写笔记、PDF 文档及图片完美识别并转化为所见即所得的 Markdown 文本。
+</p>
 
-- 📝 **多格式支持**：支持 PDF、JPG、PNG 等手写笔记格式
-- 🤖 **多 AI 提供商**：支持 Gemini、Claude、OpenAI 等多种 AI 服务
-- ⚡ **快捷键操作**：提供快捷键快速转换文件
-- 🎨 **美观 UI**：现代化的用户界面设计
-- ⚙️ **灵活配置**：丰富的设置选项，支持自定义转换提示词
-- 🔄 **批量转换**：支持批量转换多个文件
-- 📊 **文件统计**：显示文件大小和转换进度
+<p align="center">
+<a href="https://github.com/CYZice/Hand-to-Markdown-AI/stargazers">
+<img src="https://img.shields.io/github/stars/CYZice/Hand-to-Markdown-AI?style=flat-square&color=6c5ce7" alt="GitHub Stars">
+</a>
+<a href="https://github.com/CYZice/Hand-to-Markdown-AI/releases/latest">
+<img src="https://img.shields.io/github/v/release/CYZice/Hand-to-Markdown-AI?style=flat-square&color=00b894" alt="Latest Release">
+</a>
+<a href="https://github.com/CYZice/Hand-to-Markdown-AI/releases">
+<img src="https://img.shields.io/github/downloads/CYZice/Hand-to-Markdown-AI/total?style=flat-square&color=0984e3" alt="Downloads">
+</a>
+<a href="https://github.com/CYZice/Hand-to-Markdown-AI/blob/main/LICENSE">
+<img src="https://img.shields.io/github/license/CYZice/Hand-to-Markdown-AI?style=flat-square&color=636e72" alt="License">
+</a>
+</p>
 
-## 安装方法
+<p align="center">
+<b>简体中文</b>
+</p>
 
-### 方法一：手动安装
+## 🌟 核心亮点
 
-1. 下载最新版本的插件
-2. 将 `Hand-Markdown-AI` 文件夹复制到你的 Obsidian vault 的 `.obsidian/plugins/` 目录下
-3. 在 Obsidian 中启用插件
+### 🤖 智能上下文与无缝融合
+告别繁琐的快捷键绑定，采用统一的 **全局智能判断架构**。让 AI 顺应你的输入流：
 
-### 方法二：使用插件市场（待发布）
+| 行内链接无缝转换 | 预览模式提取替换 | 侧边栏/全局批量执行 |
+|:--:|:--:|:--:|
+| ![Source Edit](./assets/source-edit.png) | ![Preview Extract](./assets/preview-extract.png) | ![Folder Batch](./assets/folder-batch.png) |
+| 在源码模式对 `![[]]` 图片链接触发，**转换文本将精准嵌入至代码下一行**，不破坏原有结构。 | 在实时预览/阅读模式直接右击图像进行提取，后台将跨越DOM寻址并进行精准行内替换。 | 在文件树右键整组目录或使用热键呼出，启动带有实时监控的深度渲染与排队转换引擎。 |
 
-在 Obsidian 的社区插件市场搜索 "Hand Markdown AI" 并安装
+### 🪡 硬核原位网络防御：断点级错误恢复
+对于处理数百页超大 PDF 资料时极为关键的护城河能力：
+网络中途中断或触发 API 频率限制不再是噩梦。你可以对任何生成出错残缺的 Markdown 输出文件右键点击 **“重试转换”**。程序会精准识别日志中的 `> [!ERROR]` 位置，**仅重新请求失败的页面并完美原位覆盖**，绝不出错打乱阅读顺序。
 
-## 配置说明
+## 🎯 功能特性
 
-### 1. 选择 AI 提供商
+| 特性 | 说明详解 |
+|---------|-------------|
+| 📝 **多格式通吃** | 并发处理 PDF、JPG、PNG 等手写扫描文档及 Excalidraw 等数字草图。 |
+| 🌐 **三强模型集成** | 内置 Gemini (Google)、Claude (Anthropic)、OpenAI 接口调用支持。自定义代理 Base URL。 |
+| 🎛️ **高度配置化** | 支持自由调配系统提示词 (Prompt)、温度值 (Temperature) 及处理 Token 上限。 |
+| 📁 **自动化文件系统** | 自定义提取后保存位置并提供重命名处理策略，或是采用全局自动就地插入策略。 |
+| 📊 **批处理 UI** | 多文件扫描并发转换自带友好现代化的 Obsidian 日志面板和排队处理进度条。 |
 
-在设置页面选择你要使用的 AI 提供商：
-- **Gemini**：Google 的 AI 服务
-- **Claude**：Anthropic 的 AI 服务
-- **OpenAI**：OpenAI 的 GPT 模型
+---
 
-### 2. 配置 API 密钥
+## ⚡ 快捷键与指令
 
-每个提供商都需要配置相应的 API 密钥：
-- **Gemini**：在 [Google AI Studio](https://makersuite.google.com/) 获取 API 密钥
-- **Claude**：在 [Anthropic Console](https://console.anthropic.com/) 获取 API 密钥
-- **OpenAI**：在 [OpenAI Platform](https://platform.openai.com/) 获取 API 密钥
+通过精心编排极简的用户交互层：
 
-### 3. 配置模型参数
+### 统一快捷键
 
-根据需要配置：
-- 模型名称（如 gemini-pro、claude-3-opus、gpt-4）
-- 自定义 Base URL（可选）
-- 温度参数（控制创造性）
-- 最大输出令牌数
-
-### 4. 输出设置
-
-- **输出目录**：指定转换后的 Markdown 文件保存位置
-- **保留原始文件名**：是否使用原始文件名
-- **文件扩展名**：输出的文件扩展名（默认 .md）
-- **自动打开文件**：转换后是否自动打开文件
-
-### 5. 高级设置
-
-- **请求超时时间**：API 请求的超时时间（毫秒）
-- **最大重试次数**：请求失败时的重试次数
-- **显示详细日志**：在控制台显示调试日志
-- **使用流式响应**：是否使用流式响应
-- **转换提示词**：自定义 AI 转换提示词
-
-## 使用方法
-
-### 快捷键
-
-| 快捷键 | 功能 |
+| 快捷键 (可自定义) | 触发功能 |
 |--------|------|
-| `Ctrl+Shift+C` | 转换单个文件 |
-| `Ctrl+Alt+C` | 转换当前文件 |
-| `Ctrl+Shift+Alt+C` | 转换选中的文件 |
-| `Ctrl+,` | 打开设置 |
+| `Ctrl+Alt+C` 或 `Cmd+Alt+C` | **智能转换为Markdown**<br>基于焦点：选中文件则弹窗、基于图片则行内替换、无目标则全局呼出 |
+| `Ctrl+,` | **直达偏好设置** |
 
+### 全场景右键菜单 (Context Menus)
 
-### 命令面板
+1. **左侧文件树**：对任何支持图片或含图片的文件夹右击进行递归批量转换。
+2. **源码编辑模式**：聚焦任一图像或 PDF 引用链接右键，选用行内精准转换插入。
+3. **沉浸阅读 / 网页模式**：在此模式下右点某张图，后台反向溯源帮你将这行图表提炼为对应文本。
+4. **输出记录二次干预**：右键已经部分转换完成包含错误标注的文章，即可触发缺失页精准无损填补。
 
-通过 `Ctrl+P` 打开命令面板，输入或搜索以下命令：
+---
 
-- **Hand Markdown AI: 转换当前文件**：将当前激活的文件转换为 Markdown（支持 PDF、JPG、PNG）。
-- **Hand Markdown AI: 转换文件夹内所有文件**：弹出文件夹选择框，批量转换所选文件夹及其子文件夹内所有受支持的文件。
+## 🚀 快速开始
 
+### 前置准备资源要求
+您需要自备对应厂商的 API 令牌，支持：
+* **Gemini**: [Google AI Studio](https://makersuite.google.com/)
+* **Claude**: [Anthropic Console](https://console.anthropic.com/)
+* **OpenAI**: [OpenAI Platform](https://platform.openai.com/)
 
-### 右键菜单
+### 安装步骤 (手动发布版本)
+1. 前往本仓库 [Releases](https://github.com/CYZice/Hand-to-Markdown-AI/releases) 页面，下载最新的 `main.js`, `manifest.json`, 以及 `styles.css` 文件。
+2. 在您的 Obsidian 笔记目录中创建：`<vault>/.obsidian/plugins/Hand-Markdown-AI/`
+3. 塞入这三个文件后，在 Obsidian 设置 -> 第三方插件 -> 启用 "Hand Markdown AI"。
+4. 进到插件配置页维护您的 API 信息，直接开启您的生产力魔法！
 
-在文件浏览器或相关界面右键点击时，支持以下菜单功能：
+---
 
-- **文件浏览器右键文件**：受支持格式（PDF、JPG、PNG）文件右键，显示“转换为Markdown”菜单项。
-- **输出目录 Markdown 文件**：右键输出目录中的 Markdown 文件，显示“重试失败页（输出文件）”和“重试指定页（输出文件）”菜单项，可针对转换失败的页进行重试。
-- **文件夹右键**：右键文件夹，显示“转换此文件夹内所有文件”菜单项，可批量转换整个文件夹。
-- **Markdown 预览图片右键**：在 Markdown 预览视图下右键图片（包括 Excalidraw 导出 PNG），显示“转换为Markdown”菜单项。
+## 🛠️ 故障排除
 
-### Ribbon 图标
+* **大范围 `转换失败`**: 请第一时间按 `F12` 或前往控制台审查是否有 API 报错；核对密钥以及您的网络连通性。也可以尝试加大配置中的"超时时间"。
+* **排版异常 / 并发丢页**: 超过 10 MB 单图片或大体积扫描件将考验你的网络带宽，遇到转换打断等情况，请对 Markdown 文件直接唤醒**断点重试**菜单修复个别失败页面。
 
-点击左侧边栏的 Hand Markdown AI 图标，可以快速转换单个文件
+---
 
-## 文件格式要求
+## 👨‍💻 开发者指南
 
-- **PDF**：支持多页 PDF 文件
-- **JPG**：支持 JPEG 格式图片
-- **PNG**：支持 PNG 格式图片
-- **最大文件大小**：10MB
-
-## 转换流程
-
-1. 选择要转换的文件
-2. 插件将文件转换为 Base64 格式
-3. 发送到 AI 服务进行识别和转换
-4. 接收转换结果并保存为 Markdown 文件
-5. 可选：自动打开转换后的文件
-
-## 故障排除
-
-### 转换失败
-
-1. 检查 API 密钥是否正确配置
-2. 检查网络连接是否正常
-3. 查看控制台日志获取详细错误信息
-4. 尝试增加超时时间或重试次数
-
-### API 配额限制
-
-- 检查你的 API 账户是否有足够的配额
-- 考虑升级到付费计划
-
-### 文件格式不支持
-
-- 确保文件是 PDF、JPG 或 PNG 格式
-- 检查文件大小是否超过 10MB 限制
-
-## 开发说明
-
-### 项目结构
-
-```
-Hand-Markdown-AI/
-├── src/
-│   ├── main.ts                 # 主插件类
-│   ├── settings-tab.ts         # 设置面板
-│   ├── conversion-modal.ts     # 转换对话框
-│   ├── conversion-service.ts   # 转换服务
-│   ├── file-processor.ts       # 文件处理
-│   ├── defaults.ts             # 默认配置
-│   ├── types.ts                # 类型定义
-│   └── providers/              # AI 提供商适配器
-│       ├── base-provider.ts    # 基础提供商类
-│       ├── gemini-provider.ts  # Gemini 适配器
-│       ├── claude-provider.ts  # Claude 适配器
-│       └── openai-provider.ts  # OpenAI 适配器
-├── styles.css                  # 样式文件
-├── manifest.json               # 插件清单
-├── package.json                # 依赖配置
-├── tsconfig.json               # TypeScript 配置
-└── README.md                   # 说明文档
-```
-
-### 构建命令
+基于现代前端管线开发与自动化部署：
 
 ```bash
-# 安装依赖
+# 1. 挂载环境
 npm install
 
-# 开发模式（自动编译）
+# 2. 本地调试与文件自动重载
 npm run dev
 
-# 生产构建
+# 3. 集成打包打标
 npm run build
 
-# 版本更新
-npm run version
+# 4. 发布与版本快推 (联动 Github Actions 实现自建 Release)
+# 只需敲入以下命令实现 Tag + Commit + Release 自动流水线：
+npm version patch # or minor, major
 ```
 
-## 许可证
+## 📜 开源协议与感谢
+此增强套件使用 [MIT License](LICENSE) 证书开源发布。
 
-MIT License
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-## 更新日志
-
-### v1.0.0 (2024-01-01)
-
-- 初始版本发布
-- 支持 PDF、JPG、PNG 格式
-- 支持 Gemini、Claude、OpenAI 提供商
-- 实现快捷键和命令面板
-- 完善的设置面板
-
-## 联系方式
-
-如有问题或建议，请通过以下方式联系：
-- GitHub Issues
-- Email: your-email@example.com
-
-## 致谢
-
-- [Obsidian](https://obsidian.md/) - 强大的笔记应用
-- [noted.md](https://github.com/yourusername/noted.md) - 原始转换逻辑参考
-- [markdown-next-ai](https://github.com/yourusername/markdown-next-ai) - 架构设计参考
+<p align="center">
+<a href="https://github.com/CYZice/Hand-to-Markdown-AI/issues" target="_blank">
+<img src="https://img.shields.io/badge/提交意见-Issue-red?style=for-the-badge" alt="Issues">
+</a>
+</p>

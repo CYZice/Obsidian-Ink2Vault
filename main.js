@@ -4626,7 +4626,7 @@ var HandMarkdownAIPlugin = class extends import_obsidian11.Plugin {
       const img = evt.target;
       if (!img || img.tagName !== "IMG")
         return;
-      const preview = img.closest(".markdown-preview-view");
+      const preview = img.closest(".markdown-preview-view") || img.closest(".markdown-source-view");
       if (!preview)
         return;
       let imgPath = img.dataset?.href || img.getAttribute("src");
