@@ -254,7 +254,7 @@ export class ConversionService {
                         const processedMarkdown = ConversionService.postProcessConvertedMarkdown(result.markdown, this.settings);
                         const appendContent = result.success !== false
                             ? (nextWriteId === 1 ? `${processedMarkdown}` : `${separator}${processedMarkdown}`)
-                            : (nextWriteId === 1 ? `> [!ERROR] 转换失败: ${result.error}` : `${separator}> [!ERROR] 转换失败: ${result.error}`);
+                            : (nextWriteId === 1 ? `> [!ERROR] 第 ${job.pages.join(", ")} 页转换失败: ${result.error}` : `${separator}> [!ERROR] 第 ${job.pages.join(", ")} 页转换失败: ${result.error}`);
 
                         // 更新统计与模态进度
                         if (result.success !== false) {
@@ -569,12 +569,17 @@ export class ConversionService {
                 const of = this.app.vault.getAbstractFileByPath(outputPath) as TFile;
                 const current = await this.app.vault.read(of);
 
-                // 删除对应错误块（第 X 页渲染失败）
-                const cleaned = current.replace(new RegExp(`\n?\n?---\n\n>? \[!ERROR\] 第 ${pageNum} 页渲染失败: .*`), "")
-                    .replace(new RegExp(`>? \[!ERROR\] 第 ${pageNum} 页渲染失败: .*\n?`), "");
+                // 尝试提取并替换对应的错误块
+                const errorRegexExact = new RegExp(`>? \\[!ERROR\\] 第 ${pageNum} 页(?:渲染|转换)失败: [^\\n]*\\n?`);
+                let newContent = current;
+                if (errorRegexExact.test(current)) {
+                    newContent = current.replace(errorRegexExact, res.markdown + "\n");
+                } else {
+                    const append = `\n\n---\n\n${res.markdown}`;
+                    newContent = current + append;
+                }
 
-                const append = (i === 0 ? res.markdown : `\n\n---\n\n${res.markdown}`);
-                await this.app.vault.modify(of, cleaned + append);
+                await this.app.vault.modify(of, newContent);
 
                 successCount++;
                 progress.updateAIProgress(successCount);
@@ -631,10 +636,14 @@ export class ConversionService {
             const of = this.app.vault.getAbstractFileByPath(outputPath) as TFile;
             const current = await this.app.vault.read(of);
 
-            const cleaned = current.replace(new RegExp(`\n?\n?---\n\n>? \[!ERROR\] 第 ${pageNum} 页渲染失败: .*`), "")
-                .replace(new RegExp(`>? \[!ERROR\] 第 ${pageNum} 页渲染失败: .*\n?`), "");
-            const append = res.markdown;
-            await this.app.vault.modify(of, cleaned + `\n\n---\n\n` + append);
+            const errorRegexExact = new RegExp(`>? \\[!ERROR\\] 第 ${pageNum} 页(?:渲染|转换)失败: [^\\n]*\\n?`);
+            let newContent = current;
+            if (errorRegexExact.test(current)) {
+                newContent = current.replace(errorRegexExact, res.markdown + "\n");
+            } else {
+                newContent = current + `\n\n---\n\n${res.markdown}`;
+            }
+            await this.app.vault.modify(of, newContent);
 
             progress.updateAIProgress(1);
             progress.close();

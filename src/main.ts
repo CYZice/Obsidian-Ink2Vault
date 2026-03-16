@@ -207,6 +207,69 @@ export default class HandMarkdownAIPlugin extends Plugin {
         this.openConfirmModalForSelection({ mode: "file", filePath: file.path });
     }
 
+    private findImageInLine(line: string, sourcePath: string, targetFile: TFile): { path: string; start: number; end: number; format: 'wiki' | 'markdown' } | null {
+        if (!line.includes("[") && !line.includes("(")) return null;
+
+        const indices: number[] = [];
+
+        let match;
+        const wikiRegex = /!?\[\[([^\]]+)\]\]/g;
+        while ((match = wikiRegex.exec(line)) !== null) {
+            indices.push(match.index);
+        }
+
+        const mdRegex = /!?\[([^\]]*)\]\(([^)]+)\)/g;
+        while ((match = mdRegex.exec(line)) !== null) {
+            indices.push(match.index);
+        }
+
+        for (const idx of new Set(indices)) {
+            const linkInfo = this.extractImageAtCursor(line, idx);
+            if (linkInfo) {
+                const dest = this.app.metadataCache.getFirstLinkpathDest(linkInfo.path, sourcePath);
+                if (dest && dest.path === targetFile.path) {
+                    return linkInfo;
+                }
+            }
+        }
+        return null;
+    }
+
+    private async smartConvertPreviewImage(file: TFile) {
+        if (!this.conversionService.validateConfig()) {
+            new Notice("请先在设置中配置AI提供商", 5000);
+            this.openSettings();
+            return;
+        }
+
+        const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+        if (activeView?.editor && activeView.file) {
+            const editor = activeView.editor;
+            const lineCount = editor.lineCount();
+            let foundLine = -1;
+            let foundLinkInfo = null;
+
+            for (let i = 0; i < lineCount; i++) {
+                const line = editor.getLine(i);
+                if (!line.includes("[") && !line.includes("(")) continue;
+
+                const linkInfo = this.findImageInLine(line, activeView.file.path, file);
+                if (linkInfo) {
+                    foundLine = i;
+                    foundLinkInfo = linkInfo;
+                    break;
+                }
+            }
+
+            if (foundLinkInfo && foundLine !== -1) {
+                await this.convertLinkInEditor(foundLinkInfo, editor, activeView, foundLine);
+                return;
+            }
+        }
+
+        this.openConfirmModalForSelection({ mode: "file", filePath: file.path });
+    }
+
     /**
      * 注册右键菜单
      */
@@ -235,21 +298,17 @@ export default class HandMarkdownAIPlugin extends Plugin {
                     if (isOutputMarkdown) {
                         menu.addItem((item) => {
                             item
-                                .setTitle("重试失败页（输出文件）")
-                                .setIcon("refresh-ccw")
-                                .onClick(() => {
-                                    this.conversionService.retryFailedPagesFromOutput(file.path);
-                                });
-                        });
-                        menu.addItem((item) => {
-                            item
-                                .setTitle("重试指定页（输出文件）")
+                                .setTitle("重试转换（输入页码或留空重试全部失败页）")
                                 .setIcon("rotate-ccw")
                                 .onClick(() => {
-                                    const pageStr = prompt("请输入要重试的页码：");
-                                    const pageNum = pageStr ? parseInt(pageStr) : NaN;
+                                    const pageStr = prompt("请输入要重试的页码（留空则重试所有失败页）：");
+                                    if (pageStr === null) return; // 用户取消
+
+                                    const pageNum = parseInt(pageStr);
                                     if (!isNaN(pageNum) && pageNum > 0) {
                                         this.conversionService.retrySinglePageFromOutput(file.path, undefined, pageNum);
+                                    } else {
+                                        this.conversionService.retryFailedPagesFromOutput(file.path);
                                     }
                                 });
                         });
@@ -345,7 +404,7 @@ export default class HandMarkdownAIPlugin extends Plugin {
                     item.setTitle("转换为Markdown")
                         .setIcon("wand")
                         .onClick(async () => {
-                            await this.smartConvert(file);
+                            await this.smartConvertPreviewImage(file);
                         });
                 });
                 menu.showAtPosition({ x: evt.clientX, y: evt.clientY });

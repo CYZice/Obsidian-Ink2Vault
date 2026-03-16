@@ -72,8 +72,6 @@
 | `Ctrl+Shift+C` | 转换单个文件 |
 | `Ctrl+Alt+C` | 转换当前文件 |
 | `Ctrl+Shift+Alt+C` | 转换选中的文件 |
-| `Ctrl+K` | 快速转换当前文件（无确认） |
-| `Ctrl+P` | 切换 AI 提供商 |
 | `Ctrl+,` | 打开设置 |
 
 

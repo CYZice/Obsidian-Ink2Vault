@@ -2045,7 +2045,7 @@ ${this.settings.outputSettings.contentAfterTitle ? "\n" + this.settings.outputSe
 
 `;
             const processedMarkdown = ConversionService.postProcessConvertedMarkdown(result.markdown, this.settings);
-            const appendContent = result.success !== false ? nextWriteId === 1 ? `${processedMarkdown}` : `${separator}${processedMarkdown}` : nextWriteId === 1 ? `> [!ERROR] \u8F6C\u6362\u5931\u8D25: ${result.error}` : `${separator}> [!ERROR] \u8F6C\u6362\u5931\u8D25: ${result.error}`;
+            const appendContent = result.success !== false ? nextWriteId === 1 ? `${processedMarkdown}` : `${separator}${processedMarkdown}` : nextWriteId === 1 ? `> [!ERROR] \u7B2C ${job.pages.join(", ")} \u9875\u8F6C\u6362\u5931\u8D25: ${result.error}` : `${separator}> [!ERROR] \u7B2C ${job.pages.join(", ")} \u9875\u8F6C\u6362\u5931\u8D25: ${result.error}`;
             if (result.success !== false) {
               successPages += job.images.length;
             } else {
@@ -2317,18 +2317,19 @@ ${this.settings.outputSettings.contentAfterTitle ? "\n" + this.settings.outputSe
         const res = await this.aiService.convertImageBatch([pageFileData], prompt2, [pageNum]);
         const of = this.app.vault.getAbstractFileByPath(outputPath);
         const current = await this.app.vault.read(of);
-        const cleaned = current.replace(new RegExp(`
-?
-?---
-
->? [!ERROR] \u7B2C ${pageNum} \u9875\u6E32\u67D3\u5931\u8D25: .*`), "").replace(new RegExp(`>? [!ERROR] \u7B2C ${pageNum} \u9875\u6E32\u67D3\u5931\u8D25: .*
-?`), "");
-        const append = i === 0 ? res.markdown : `
+        const errorRegexExact = new RegExp(`>? \\[!ERROR\\] \u7B2C ${pageNum} \u9875(?:\u6E32\u67D3|\u8F6C\u6362)\u5931\u8D25: [^\\n]*\\n?`);
+        let newContent = current;
+        if (errorRegexExact.test(current)) {
+          newContent = current.replace(errorRegexExact, res.markdown + "\n");
+        } else {
+          const append = `
 
 ---
 
 ${res.markdown}`;
-        await this.app.vault.modify(of, cleaned + append);
+          newContent = current + append;
+        }
+        await this.app.vault.modify(of, newContent);
         successCount++;
         progress.updateAIProgress(successCount);
         progress.setStatus(`\u5DF2\u91CD\u8BD5 ${successCount}/${pageNums.length}`);
@@ -2376,18 +2377,18 @@ ${res.markdown}`;
       const res = await this.aiService.convertImageBatch([pageFileData], prompt2, [pageNum]);
       const of = this.app.vault.getAbstractFileByPath(outputPath);
       const current = await this.app.vault.read(of);
-      const cleaned = current.replace(new RegExp(`
-?
-?---
-
->? [!ERROR] \u7B2C ${pageNum} \u9875\u6E32\u67D3\u5931\u8D25: .*`), "").replace(new RegExp(`>? [!ERROR] \u7B2C ${pageNum} \u9875\u6E32\u67D3\u5931\u8D25: .*
-?`), "");
-      const append = res.markdown;
-      await this.app.vault.modify(of, cleaned + `
+      const errorRegexExact = new RegExp(`>? \\[!ERROR\\] \u7B2C ${pageNum} \u9875(?:\u6E32\u67D3|\u8F6C\u6362)\u5931\u8D25: [^\\n]*\\n?`);
+      let newContent = current;
+      if (errorRegexExact.test(current)) {
+        newContent = current.replace(errorRegexExact, res.markdown + "\n");
+      } else {
+        newContent = current + `
 
 ---
 
-` + append);
+${res.markdown}`;
+      }
+      await this.app.vault.modify(of, newContent);
       progress.updateAIProgress(1);
       progress.close();
       new import_obsidian5.Notice(`\u7B2C ${pageNum} \u9875\u91CD\u8BD5\u5B8C\u6210`, 4e3);
@@ -4483,6 +4484,60 @@ var HandMarkdownAIPlugin = class extends import_obsidian11.Plugin {
     }
     this.openConfirmModalForSelection({ mode: "file", filePath: file.path });
   }
+  findImageInLine(line, sourcePath, targetFile) {
+    if (!line.includes("[") && !line.includes("("))
+      return null;
+    const indices = [];
+    let match;
+    const wikiRegex = /!?\[\[([^\]]+)\]\]/g;
+    while ((match = wikiRegex.exec(line)) !== null) {
+      indices.push(match.index);
+    }
+    const mdRegex = /!?\[([^\]]*)\]\(([^)]+)\)/g;
+    while ((match = mdRegex.exec(line)) !== null) {
+      indices.push(match.index);
+    }
+    for (const idx of new Set(indices)) {
+      const linkInfo = this.extractImageAtCursor(line, idx);
+      if (linkInfo) {
+        const dest = this.app.metadataCache.getFirstLinkpathDest(linkInfo.path, sourcePath);
+        if (dest && dest.path === targetFile.path) {
+          return linkInfo;
+        }
+      }
+    }
+    return null;
+  }
+  async smartConvertPreviewImage(file) {
+    if (!this.conversionService.validateConfig()) {
+      new import_obsidian11.Notice("\u8BF7\u5148\u5728\u8BBE\u7F6E\u4E2D\u914D\u7F6EAI\u63D0\u4F9B\u5546", 5e3);
+      this.openSettings();
+      return;
+    }
+    const activeView = this.app.workspace.getActiveViewOfType(import_obsidian11.MarkdownView);
+    if (activeView?.editor && activeView.file) {
+      const editor = activeView.editor;
+      const lineCount = editor.lineCount();
+      let foundLine = -1;
+      let foundLinkInfo = null;
+      for (let i = 0; i < lineCount; i++) {
+        const line = editor.getLine(i);
+        if (!line.includes("[") && !line.includes("("))
+          continue;
+        const linkInfo = this.findImageInLine(line, activeView.file.path, file);
+        if (linkInfo) {
+          foundLine = i;
+          foundLinkInfo = linkInfo;
+          break;
+        }
+      }
+      if (foundLinkInfo && foundLine !== -1) {
+        await this.convertLinkInEditor(foundLinkInfo, editor, activeView, foundLine);
+        return;
+      }
+    }
+    this.openConfirmModalForSelection({ mode: "file", filePath: file.path });
+  }
   /**
    * 注册右键菜单
    */
@@ -4505,16 +4560,15 @@ var HandMarkdownAIPlugin = class extends import_obsidian11.Plugin {
           const isOutputMarkdown = ext === outExt && inOutputDir;
           if (isOutputMarkdown) {
             menu.addItem((item) => {
-              item.setTitle("\u91CD\u8BD5\u5931\u8D25\u9875\uFF08\u8F93\u51FA\u6587\u4EF6\uFF09").setIcon("refresh-ccw").onClick(() => {
-                this.conversionService.retryFailedPagesFromOutput(file.path);
-              });
-            });
-            menu.addItem((item) => {
-              item.setTitle("\u91CD\u8BD5\u6307\u5B9A\u9875\uFF08\u8F93\u51FA\u6587\u4EF6\uFF09").setIcon("rotate-ccw").onClick(() => {
-                const pageStr = prompt("\u8BF7\u8F93\u5165\u8981\u91CD\u8BD5\u7684\u9875\u7801\uFF1A");
-                const pageNum = pageStr ? parseInt(pageStr) : NaN;
+              item.setTitle("\u91CD\u8BD5\u8F6C\u6362\uFF08\u8F93\u5165\u9875\u7801\u6216\u7559\u7A7A\u91CD\u8BD5\u5168\u90E8\u5931\u8D25\u9875\uFF09").setIcon("rotate-ccw").onClick(() => {
+                const pageStr = prompt("\u8BF7\u8F93\u5165\u8981\u91CD\u8BD5\u7684\u9875\u7801\uFF08\u7559\u7A7A\u5219\u91CD\u8BD5\u6240\u6709\u5931\u8D25\u9875\uFF09\uFF1A");
+                if (pageStr === null)
+                  return;
+                const pageNum = parseInt(pageStr);
                 if (!isNaN(pageNum) && pageNum > 0) {
                   this.conversionService.retrySinglePageFromOutput(file.path, void 0, pageNum);
+                } else {
+                  this.conversionService.retryFailedPagesFromOutput(file.path);
                 }
               });
             });
@@ -4593,7 +4647,7 @@ var HandMarkdownAIPlugin = class extends import_obsidian11.Plugin {
         const menu = new import_obsidian11.Menu();
         menu.addItem((item) => {
           item.setTitle("\u8F6C\u6362\u4E3AMarkdown").setIcon("wand").onClick(async () => {
-            await this.smartConvert(file);
+            await this.smartConvertPreviewImage(file);
           });
         });
         menu.showAtPosition({ x: evt.clientX, y: evt.clientY });
