@@ -21,11 +21,72 @@
 }
 
 .markdown-next-ai-config-table td {
-    padding: 8px 12px;
+    padding: 6px 10px;
     border-bottom: 1px solid var(--background-modifier-border);
     color: var(--text-normal);
     font-size: 0.85em;
     vertical-align: middle;
+}
+
+.ink2vault-compact-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0 6px;
+}
+
+.ink2vault-compact-header h4 {
+    margin: 0;
+}
+
+.ink2vault-header-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ink2vault-header-actions button {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border: none;
+    padding: 4px 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.ink2vault-model-table {
+    margin-top: 6px;
+    table-layout: fixed;
+}
+
+.ink2vault-model-table th:nth-child(1),
+.ink2vault-model-table td:nth-child(1) {
+    width: 38%;
+}
+
+.ink2vault-model-table th:nth-child(2),
+.ink2vault-model-table td:nth-child(2) {
+    width: 26%;
+}
+
+.ink2vault-model-name {
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.ink2vault-model-id {
+    color: var(--text-muted);
+    font-size: 0.78em;
+    margin-top: 2px;
+    overflow-wrap: anywhere;
+}
+
+.ink2vault-model-table .markdown-next-ai-actions-cell button {
+    padding: 3px 8px;
+    margin-right: 4px;
 }
 
 .markdown-next-ai-config-table tr:last-child td {
@@ -257,6 +318,40 @@
     color: var(--text-normal);
     font-size: 1rem;
     font-weight: 600;
+}
+
+.ink2vault-settings-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    margin-top: 18px;
+    align-items: start;
+}
+
+.ink2vault-settings-panel {
+    min-width: 0;
+}
+
+.ink2vault-settings-panel h3 {
+    margin-top: 0;
+}
+
+.ink2vault-settings-panel .setting-item {
+    padding: 14px 16px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 8px;
+    background: var(--background-secondary);
+    margin-bottom: 10px;
+}
+
+.ink2vault-settings-panel .setting-item-control {
+    min-width: 180px;
+}
+
+@media (max-width: 900px) {
+    .ink2vault-settings-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* API Key 输入框样式 */
@@ -572,6 +667,17 @@
 
 /* 响应式适配 */
 @media (max-width: 768px) {
+    .ink2vault-compact-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .ink2vault-model-table {
+        display: block;
+        overflow-x: auto;
+        table-layout: auto;
+    }
+
     .provider-table {
         display: block;
         overflow-x: auto;

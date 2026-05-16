@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS } from "./defaults";
 import { AIService } from "./services/ai-service";
 import type { PluginSettings } from "./types";
 import { ConfirmConversionModal } from "./ui/confirm-modal";
+import { ProgressModal } from "./ui/progress-modal";
 import { SimpleSettingsTab } from "./ui/simple-settings-tab";
 import { PDFProcessor } from "./utils/pdf-processor";
 
@@ -35,8 +36,6 @@ export default class Ink2VaultPlugin extends Plugin {
         this.registerContextMenu();
 
         this.registerEditorLinkContextMenu();
-
-        this.registerPreviewImageContextMenu(); // 注册 markdown 预览图片的原生右键菜单
 
         // 根据需求移除 Ribbon 图标点击入口
 
@@ -394,116 +393,6 @@ export default class Ink2VaultPlugin extends Plugin {
         );
     }
 
-
-
-    /**
-     * 注册 markdown 预览图片的原生右键菜单（支持所有图片，包括 Excalidraw 导出 PNG）
-     */
-    private cleanPossibleVaultPath(rawPath: string): string {
-        const withoutQuery = rawPath.split("?")[0].split("#")[0].trim();
-        try {
-            return decodeURIComponent(withoutQuery);
-        } catch {
-            return withoutQuery;
-        }
-    }
-
-    private getCandidateVaultPaths(rawPath: string): string[] {
-        const clean = this.cleanPossibleVaultPath(rawPath);
-        const candidates = new Set<string>();
-        const add = (path: string) => {
-            const normalized = path.replace(/^\/+/, "");
-            if (normalized) candidates.add(normalized);
-        };
-
-        add(clean);
-
-        if (clean.startsWith("app://local/")) {
-            const localPath = clean.replace("app://local/", "");
-            const parts = localPath.split("/").filter(Boolean);
-            for (let i = 0; i < parts.length; i++) {
-                add(parts.slice(i).join("/"));
-            }
-        }
-
-        return Array.from(candidates);
-    }
-
-    private resolveVaultFileFromRawPath(rawPath: string): TFile | null {
-        const candidates = this.getCandidateVaultPaths(rawPath);
-        for (const candidate of candidates) {
-            const file = this.app.vault.getAbstractFileByPath(candidate);
-            if (file instanceof TFile && ConversionService.isFileSupported(file.path)) {
-                return file;
-            }
-        }
-
-        const lastCandidate = candidates[candidates.length - 1];
-        const fileName = lastCandidate?.split("/").pop();
-        if (!fileName) return null;
-
-        const matches = this.app.vault.getFiles().filter(file =>
-            file.name === fileName && ConversionService.isFileSupported(file.path)
-        );
-        return matches.length === 1 ? matches[0] : null;
-    }
-
-    private getDomAttributePath(el: HTMLElement | null, attrs: string[]): string | null {
-        if (!el) return null;
-        for (const attr of attrs) {
-            const datasetKey = attr.startsWith("data-")
-                ? attr.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase())
-                : "";
-            const datasetValue = datasetKey ? (el.dataset as any)?.[datasetKey] : null;
-            const value = datasetValue || el.getAttribute(attr);
-            if (value) return value;
-        }
-        return null;
-    }
-
-    private resolveImageFileFromContextMenuEvent(evt: MouseEvent): TFile | null {
-        const target = evt.target as HTMLElement | null;
-        if (!target) return null;
-
-        const container = target.closest(".markdown-preview-view, .markdown-source-view");
-        if (!container) return null;
-
-        const img = target.closest("img") as HTMLImageElement | null
-            || (target.closest(".internal-embed, .image-embed") as HTMLElement | null)?.querySelector("img")
-            || target.querySelector?.("img") as HTMLImageElement | null;
-        const embed = target.closest(".internal-embed, .image-embed") as HTMLElement | null;
-
-        const rawPaths = [
-            this.getDomAttributePath(img, ["data-href", "data-src", "src", "alt"]),
-            this.getDomAttributePath(embed, ["data-href", "data-src", "src", "alt", "aria-label"])
-        ].filter((path): path is string => !!path);
-
-        for (const rawPath of rawPaths) {
-            const file = this.resolveVaultFileFromRawPath(rawPath);
-            if (file) return file;
-        }
-
-        return null;
-    }
-
-    private registerPreviewImageContextMenu() {
-        this.registerDomEvent(document, "contextmenu", async (evt: MouseEvent) => {
-            const file = this.resolveImageFileFromContextMenuEvent(evt);
-            if (!file) return;
-
-            evt.preventDefault();
-            const menu = new Menu();
-            menu.addItem((item: MenuItem) => {
-                item.setTitle("转换图片为 Markdown")
-                    .setIcon("wand")
-                    .onClick(async () => {
-                        await this.smartConvertPreviewImage(file);
-                    });
-            });
-            menu.showAtPosition({ x: evt.clientX, y: evt.clientY });
-        });
-    }
-
     /**
      * 从光标位置提取文件链接路径
      * 支持 ![[image.png]]、![alt](image.png)、[[file.pdf]] 和 [title](file.pdf) 格式
@@ -772,14 +661,14 @@ export default class Ink2VaultPlugin extends Plugin {
             return;
         }
 
-        // 执行批量转换（带总进度）
-        const { BatchProgressModal } = await import("./ui/batch-progress-modal");
-        const batch = new BatchProgressModal(this.app);
+        // 执行批量转换（带轻量总进度）
+        const batch = new ProgressModal(this.app);
         batch.open();
-        batch.setTotals(supportedFiles.length);
+        batch.setTotals(supportedFiles.length, supportedFiles.length);
 
         const results = await this.conversionService.convertFiles(supportedFiles, ({ current, total, message }) => {
-            batch.updateProgress(current);
+            batch.updateRenderProgress(current);
+            batch.updateAIProgress(current);
             batch.setStatus(`${message} (${current}/${total})`);
         }, options);
 

@@ -70,7 +70,8 @@ export class ConfirmConversionModal extends Modal {
 
         // 1. 顶部摘要
         const summary = contentEl.createDiv({ cls: "confirm-modal-summary" });
-        summary.setText(this.getModeText());
+        summary.createEl("h3", { text: this.getModeTitle(), attr: { style: "margin:0 0 6px 0;" } });
+        summary.createDiv({ text: this.getModeText(), attr: { style: "color: var(--text-muted); font-size: 0.92em;" } });
 
         // 2. 转换范围与对象 (仅文件夹模式显示)
         if (this.options.mode === "folder") {
@@ -126,7 +127,7 @@ export class ConfirmConversionModal extends Modal {
 
         // 5. 输出设置
         const outputSection = contentEl.createDiv({ cls: "confirm-modal-section" });
-        outputSection.createEl("div", { text: "输出设置", cls: "confirm-modal-header" });
+        outputSection.createEl("div", { text: "输出位置", cls: "confirm-modal-header" });
         this.outputInfoEl = outputSection.createDiv();
         this.renderOutputControls();
 
@@ -169,14 +170,28 @@ export class ConfirmConversionModal extends Modal {
     private getModeText(): string {
         switch (this.options.mode) {
             case "folder":
-                return "您正在转换一个文件夹下的文件。";
+                return "将递归扫描文件夹中的图片和 PDF，并为每个文件生成 Markdown。";
             case "merge":
-                return "您正在将多个图片合并转换为单个 Markdown 文档。";
+                return "将多个图片作为同一组内容提交给 AI，并保存为一个 Markdown 文档。";
             case "files":
-                return "您正在批量转换多个选定的文件。";
+                return "将多个选定文件逐个转换为 Markdown，单个失败不会阻塞后续文件。";
             case "file":
             default:
-                return "您正在转换单个文件。";
+                return "将当前文件转换为新的 Markdown 文件，不会修改原文件。";
+        }
+    }
+
+    private getModeTitle(): string {
+        switch (this.options.mode) {
+            case "folder":
+                return "文件夹批量转换";
+            case "merge":
+                return "合并图片为 Markdown";
+            case "files":
+                return "批量转换为 Markdown";
+            case "file":
+            default:
+                return "转换为新的 Markdown 文件";
         }
     }
 
@@ -185,44 +200,44 @@ export class ConfirmConversionModal extends Modal {
         this.pdfInfoEl = container.createDiv({ attr: { style: "margin-bottom: 8px; font-size: 0.85em; opacity:.8;" } });
         this.pdfInfoEl.setText("读取页数中...");
 
-        const modeGroup = container.createDiv({ cls: "confirm-modal-input-group", attr: { style: "flex-direction: column; align-items: flex-start; gap: 8px;" } });
-
-        // 全部页
-        const allRow = modeGroup.createDiv({ attr: { style: "display:flex; align-items:center; gap:8px;" } });
-        const allRadio = allRow.createEl("input", { attr: { type: "radio", name: "pdf-range", value: "all" } });
-        allRadio.checked = true;
-        allRow.createEl("label", { text: "全部页" });
-        allRadio.addEventListener("change", () => {
-            if (allRadio.checked) this.pdfMode = "all";
-            this.refreshEstimate();
+        const row = container.createDiv({ cls: "confirm-modal-input-group", attr: { style: "gap: 8px; width: 100%;" } });
+        const modeSelect = row.createEl("select", { attr: { style: "width: 120px;" } });
+        modeSelect.createEl("option", { value: "all", text: "全部页" });
+        modeSelect.createEl("option", { value: "range", text: "页码范围" });
+        modeSelect.createEl("option", { value: "list", text: "指定页" });
+        const pageInput = row.createEl("input", {
+            type: "text",
+            placeholder: "全部页无需填写；范围如 2-8；指定页如 1,3,5-7",
+            attr: { style: "flex:1; min-width: 0;" }
         });
+        pageInput.disabled = true;
 
-        // 范围
-        const rangeRow = modeGroup.createDiv({ attr: { style: "display:flex; align-items:center; gap:8px;" } });
-        const rangeRadio = rangeRow.createEl("input", { attr: { type: "radio", name: "pdf-range", value: "range" } });
-        rangeRow.createEl("label", { text: "页码范围" });
-        const rangeStart = rangeRow.createEl("input", { type: "number", placeholder: "起始", cls: "confirm-modal-input-sm", attr: { style: "width: 70px;" } });
-        rangeRow.createSpan({ text: "-" });
-        const rangeEnd = rangeRow.createEl("input", { type: "number", placeholder: "结束", cls: "confirm-modal-input-sm", attr: { style: "width: 70px;" } });
-        
-        rangeStart.addEventListener("input", () => { this.pdfRangeStart = rangeStart.value; this.refreshEstimate(); rangeRadio.checked = true; this.pdfMode = "range"; });
-        rangeEnd.addEventListener("input", () => { this.pdfRangeEnd = rangeEnd.value; this.refreshEstimate(); rangeRadio.checked = true; this.pdfMode = "range"; });
-        rangeRadio.addEventListener("change", () => {
-            if (rangeRadio.checked) this.pdfMode = "range";
+        const sync = () => {
+            this.pdfMode = modeSelect.value as "all" | "range" | "list";
+            pageInput.disabled = this.pdfMode === "all";
+            pageInput.placeholder = this.pdfMode === "range"
+                ? "例如：2-8"
+                : this.pdfMode === "list"
+                    ? "例如：1,3,5-7"
+                    : "全部页无需填写";
+            if (this.pdfMode === "range") {
+                const [start = "", end = ""] = pageInput.value.split("-").map(v => v.trim());
+                this.pdfRangeStart = start;
+                this.pdfRangeEnd = end;
+            } else if (this.pdfMode === "list") {
+                this.pdfList = pageInput.value;
+            }
             this.refreshEstimate();
-        });
+        };
 
-        // 指定页
-        const listRow = modeGroup.createDiv({ attr: { style: "display:flex; align-items:center; gap:8px; width: 100%;" } });
-        const listRadio = listRow.createEl("input", { attr: { type: "radio", name: "pdf-range", value: "list" } });
-        listRow.createEl("label", { text: "指定页" });
-        const listInput = listRow.createEl("input", { type: "text", placeholder: "例如: 1,3,5-7", attr: { style: "flex:1;" } });
-        
-        listInput.addEventListener("input", () => { this.pdfList = listInput.value; this.refreshEstimate(); listRadio.checked = true; this.pdfMode = "list"; });
-        listRadio.addEventListener("change", () => {
-            if (listRadio.checked) this.pdfMode = "list";
-            this.refreshEstimate();
+        modeSelect.addEventListener("change", () => {
+            pageInput.value = "";
+            this.pdfRangeStart = "";
+            this.pdfRangeEnd = "";
+            this.pdfList = "";
+            sync();
         });
+        pageInput.addEventListener("input", sync);
     }
 
     private async initPdfInfo() {
@@ -302,8 +317,12 @@ export class ConfirmConversionModal extends Modal {
             this.draftOutputSettings.outputDir = dirInput.value;
         });
 
+        const more = this.outputInfoEl.createEl("details", { attr: { style: "margin-top:10px;" } });
+        more.createEl("summary", { text: "更多输出选项", attr: { style: "cursor:pointer; color: var(--text-muted);" } });
+        const moreContent = more.createDiv({ attr: { style: "margin-top: 8px;" } });
+
         // 2. 文件扩展名
-        const extRow = this.outputInfoEl.createDiv({ cls: "confirm-modal-row" });
+        const extRow = moreContent.createDiv({ cls: "confirm-modal-row" });
         extRow.createDiv({ text: "扩展名", cls: "confirm-modal-label" });
         const extGroup = extRow.createDiv({ cls: "confirm-modal-input-group" });
         
@@ -323,7 +342,7 @@ export class ConfirmConversionModal extends Modal {
         extInput.addEventListener("change", syncExt);
 
         // 3. 命名策略
-        const namingRow = this.outputInfoEl.createDiv({ cls: "confirm-modal-row" });
+        const namingRow = moreContent.createDiv({ cls: "confirm-modal-row" });
         namingRow.createDiv({ text: "命名策略", cls: "confirm-modal-label" });
         const namingGroup = namingRow.createDiv({ cls: "confirm-modal-input-group" });
         
@@ -336,7 +355,7 @@ export class ConfirmConversionModal extends Modal {
         });
 
         // 4. 自动打开
-        const autoOpenRow = this.outputInfoEl.createDiv({ cls: "confirm-modal-row" });
+        const autoOpenRow = moreContent.createDiv({ cls: "confirm-modal-row" });
         autoOpenRow.createDiv({ text: "", cls: "confirm-modal-label" }); // Empty label for alignment
         const autoOpenGroup = autoOpenRow.createDiv({ cls: "confirm-modal-input-group" });
         
@@ -351,7 +370,7 @@ export class ConfirmConversionModal extends Modal {
 
         // 5. 额外信息
         if (this.options.mode === "merge") {
-            const infoRow = this.outputInfoEl.createDiv({ cls: "confirm-modal-row", attr: { style: "margin-top:8px;" } });
+            const infoRow = moreContent.createDiv({ cls: "confirm-modal-row", attr: { style: "margin-top:8px;" } });
             infoRow.createDiv({ text: "", cls: "confirm-modal-label" });
             infoRow.createDiv({ text: "合并输出：首个文件名 + -merged", attr: { style: "font-size: 0.85em; opacity: 0.7;" } });
         }
@@ -424,6 +443,12 @@ export class ConfirmConversionModal extends Modal {
             batchText = `${batches} 批`;
         }
         requestItem.createDiv({ text: batchText, cls: "confirm-modal-footer-value", attr: { style: "color: var(--interactive-accent);" } });
+
+        const runtimeItem = this.estimateEl.createDiv({ cls: "confirm-modal-footer-item" });
+        runtimeItem.createDiv({ text: "并发与重试" });
+        const concurrency = this.options.settings.advancedSettings?.concurrencyLimit ?? 2;
+        const retries = this.options.settings.advancedSettings?.retryAttempts ?? 2;
+        runtimeItem.createDiv({ text: `${concurrency} 并发 / ${retries} 次重试`, cls: "confirm-modal-footer-value" });
     }
 
     private getImageCount(): number {

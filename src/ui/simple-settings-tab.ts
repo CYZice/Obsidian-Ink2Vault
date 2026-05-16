@@ -106,12 +106,14 @@ export class SimpleSettingsTab extends PluginSettingTab {
         // 标题和状态
         this.addHeader(containerEl);
 
-        // 供应商与模型
-        this.addProviderSection(containerEl);
-        this.addModelSection(containerEl);
-        this.addPdfSettings(containerEl);
-        this.addOutputSettings(containerEl);
-        this.addPromptSettings(containerEl);
+        this.addModelAndProviderSection(containerEl);
+
+        // 转换行为与 PDF 处理并排显示，减少纵向滚动
+        const settingsGrid = containerEl.createDiv({ cls: "ink2vault-settings-grid" });
+        const outputColumn = settingsGrid.createDiv({ cls: "ink2vault-settings-panel" });
+        const pdfColumn = settingsGrid.createDiv({ cls: "ink2vault-settings-panel" });
+        this.addOutputSettings(outputColumn);
+        this.addPdfSettings(pdfColumn);
 
         // 高级选项（折叠）
         this.addAdvancedOptions(containerEl);
@@ -123,39 +125,19 @@ export class SimpleSettingsTab extends PluginSettingTab {
     private addHeader(containerEl: HTMLElement) {
         containerEl.createEl("h2", { text: "Ink2Vault" });
         containerEl.createEl("p", {
-            text: "将 PDF 和手写笔记转换为 Markdown 格式",
+            text: "将图片、PDF 和手写笔记转换为 Markdown。",
             attr: { style: "color: var(--text-muted); margin-bottom: 20px;" }
         });
-
-        // 状态指示器
-        const statusDiv = containerEl.createDiv({ attr: { style: "margin-bottom: 20px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;" } });
-        const currentModel = this.plugin.settings.currentModel;
-        const modelConfig = this.plugin.settings.models[currentModel];
-        const provider = modelConfig ? this.plugin.settings.providers[modelConfig.provider] : null;
-        const hasApiKey = provider?.apiKey?.trim();
-        const canConvertFile = modelConfig?.category === MODEL_CATEGORIES.MULTIMODAL || modelConfig?.category === MODEL_CATEGORIES.VISION;
-
-        const badge = statusDiv.createDiv({ attr: { style: "display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius: 20px; border: 1px solid var(--background-modifier-border); background: var(--background-secondary);" } });
-        badge.createSpan({ text: "当前模型:", attr: { style: "opacity:0.7;" } });
-        badge.createEl("strong", { text: modelConfig?.name || currentModel });
-        if (modelConfig?.provider) {
-            const prov = statusDiv.createDiv({ attr: { style: "padding:6px 10px; border-radius: 16px; border:1px solid var(--background-modifier-border); background: var(--background-secondary); font-size:12px;" } });
-            prov.setText(`Provider: ${modelConfig.provider}${provider?.name ? ` (${provider.name})` : ''}`);
-        }
-        const capability = statusDiv.createDiv({ attr: { style: "padding:6px 10px; border-radius: 16px; border:1px solid var(--background-modifier-border); background: var(--background-secondary); font-size:12px;" } });
-        capability.setText(canConvertFile ? "支持转换（识图）" : "⚠️ 不支持转换（需多模态/视觉模型）");
-        const hint = statusDiv.createDiv({ attr: { style: "flex-basis:100%; color: var(--text-muted);" } });
-        hint.setText(hasApiKey ? "右键文件/文件夹可一键转换；命令面板可搜索相关命令。" : "⚠️ 需要配置：请先填写 API Key");
 
         containerEl.createEl("hr");
     }
 
-    private addProviderSection(containerEl: HTMLElement) {
-        containerEl.createEl("h3", { text: "供应商、API设置" });
+    private addModelAndProviderSection(containerEl: HTMLElement) {
+        containerEl.createEl("h3", { text: "模型与 API" });
 
         new Setting(containerEl)
-            .setName("使用 Obsidian Keychain 安全存储")
-            .setDesc("开启后，新配置的 API Key 将存储在系统钥匙串中 (推荐)")
+            .setName("安全存储 API Key")
+            .setDesc("推荐开启。新填写的 Key 会保存到 Obsidian Keychain。")
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.useKeychain ?? true)
                 .onChange(async (value) => {
@@ -167,119 +149,9 @@ export class SimpleSettingsTab extends PluginSettingTab {
                     }
                 }));
 
-        const providerHeader = containerEl.createEl("div", {
-            attr: { style: "display:flex;justify-content:space-between;align-items:center;margin-top:10px;margin-bottom:8px;" }
-        });
-        providerHeader.createEl("h4", { text: "供应商" });
-        providerHeader.createEl("button", {
-            text: "+ 添加供应商",
-            attr: { style: "background: var(--interactive-accent); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px;" }
-        }).onclick = () => this.showAddProviderModal();
-
-        const providerTable = containerEl.createEl("table", { cls: "markdown-next-ai-config-table" });
-        const thead = providerTable.createEl("thead").createEl("tr");
-        thead.createEl("th", { text: "ID / Name" });
-        thead.createEl("th", { text: "Type" });
-        thead.createEl("th", { text: "Actions" });
-
-        const tbody = providerTable.createEl("tbody");
-        Object.keys(this.plugin.settings.providers).forEach(providerId => {
-            const provider = this.plugin.settings.providers[providerId];
-            const row = tbody.createEl("tr");
-            row.createEl("td", { text: providerId });
-            row.createEl("td", { text: provider.type || "openai" });
-
-            const actionsCell = row.createEl("td", { cls: "markdown-next-ai-actions-cell" });
-            if (["openai", "anthropic", "gemini", "deepseek", "ollama"].includes(providerId)) {
-                const editBtn = actionsCell.createEl("button", { text: "编辑" });
-                editBtn.onclick = () => this.showEditProviderModal(providerId);
-            } else {
-                const editBtn = actionsCell.createEl("button", { text: "编辑" });
-                editBtn.onclick = () => this.showEditProviderModal(providerId);
-                const deleteBtn = actionsCell.createEl("button", { text: "删除" });
-                deleteBtn.onclick = async () => {
-                    if (confirm(`确定要删除供应商 "${providerId}" ？这将同时删除该供应商下的所有模型。`)) {
-                        Object.keys(this.plugin.settings.models).forEach(modelId => {
-                            if (this.plugin.settings.models[modelId].provider === providerId) {
-                                delete this.plugin.settings.models[modelId];
-                            }
-                        });
-                        delete this.plugin.settings.providers[providerId];
-                        await this.plugin.saveSettings();
-                        this.display();
-                    }
-                };
-            }
-        });
-    }
-
-    private addModelSection(containerEl: HTMLElement) {
-        const modelHeader = containerEl.createEl("div", { attr: { style: "display:flex;justify-content:space-between;align-items:center;margin-top:20px;margin-bottom:8px;" } });
-        modelHeader.createEl("h4", { text: "模型设置" });
-        modelHeader.createEl("button", {
-            text: "+ 添加模型",
-            attr: { style: "background: var(--interactive-accent); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px;" }
-        }).onclick = () => this.showAddModelModal();
-
-        const modelTable = containerEl.createEl("table", { cls: "markdown-next-ai-config-table" });
-        const mHead = modelTable.createEl("thead").createEl("tr");
-        mHead.createEl("th", { text: "ID / Model" });
-        mHead.createEl("th", { text: "Provider" });
-        mHead.createEl("th", { text: "Enable" });
-        mHead.createEl("th", { text: "Actions" });
-
-        const mBody = modelTable.createEl("tbody");
-        const modelsList = Object.values(this.plugin.settings.models);
-
-        if (modelsList.length > 0) {
-            modelsList.forEach(model => {
-                const row = mBody.createEl("tr");
-                row.createEl("td", { text: model.model || model.id });
-                row.createEl("td", { text: model.provider });
-
-                const enableCell = row.createEl("td", { cls: "markdown-next-ai-enable-cell" });
-                const checkbox = enableCell.createEl("input", { type: "checkbox" }) as HTMLInputElement;
-                checkbox.checked = !!model.enabled;
-                checkbox.onchange = async () => {
-                    this.plugin.settings.models[model.id].enabled = checkbox.checked;
-                    await this.plugin.saveSettings();
-                    if (!checkbox.checked && this.plugin.settings.currentModel === model.id) {
-                        const firstEnabled = Object.keys(this.plugin.settings.models).find(id => this.plugin.settings.models[id].enabled);
-                        if (firstEnabled) {
-                            this.plugin.settings.currentModel = firstEnabled;
-                            await this.plugin.saveSettings();
-                            this.display();
-                        }
-                    }
-                };
-
-                const mActionsCell = row.createEl("td", { cls: "markdown-next-ai-actions-cell" });
-                const editBtn = mActionsCell.createEl("button", { text: "编辑" });
-                editBtn.onclick = () => this.showEditModelModal(model.id);
-                const deleteBtn = mActionsCell.createEl("button", { text: "删除" });
-                deleteBtn.onclick = async () => {
-                    if (confirm(`确定要删除模型 "${model.name}" ？`)) {
-                        if (this.plugin.settings.currentModel === model.id) {
-                            const otherEnabled = Object.keys(this.plugin.settings.models).find(id => id !== model.id && this.plugin.settings.models[id].enabled);
-                            this.plugin.settings.currentModel = otherEnabled || "";
-                        }
-                        delete this.plugin.settings.models[model.id];
-                        await this.plugin.saveSettings();
-                        this.display();
-                    }
-                };
-            });
-        } else {
-            const emptyRow = mBody.createEl("tr");
-            emptyRow.createEl("td", {
-                text: "暂无模型，点击上方按钮添加",
-                attr: { colspan: "4", style: "text-align: center; color: var(--text-muted); font-style: italic; padding: 20px;" }
-            });
-        }
-
         new Setting(containerEl)
             .setName("当前模型")
-            .setDesc("选择当前使用的AI模型")
+            .setDesc("用于识别图片和 PDF 的默认视觉模型。")
             .addDropdown(dropdown => {
                 const enabledModels = Object.keys(this.plugin.settings.models)
                     .filter(id => this.plugin.settings.models[id].enabled);
@@ -300,6 +172,84 @@ export class SimpleSettingsTab extends PluginSettingTab {
                         await this.plugin.saveSettings();
                     });
             });
+
+        const modelHeader = containerEl.createEl("div", { cls: "ink2vault-compact-header" });
+        modelHeader.createEl("h4", { text: "已配置模型" });
+        const modelActions = modelHeader.createDiv({ cls: "ink2vault-header-actions" });
+        modelActions.createEl("button", { text: "+ 供应商", attr: { title: "添加 API 供应商" } }).onclick = () => this.showAddProviderModal();
+        modelActions.createEl("button", { text: "+ 模型", attr: { title: "添加模型" } }).onclick = () => this.showAddModelModal();
+
+        const modelTable = containerEl.createEl("table", { cls: "markdown-next-ai-config-table ink2vault-model-table" });
+        const mHead = modelTable.createEl("thead").createEl("tr");
+        mHead.createEl("th", { text: "模型" });
+        mHead.createEl("th", { text: "供应商" });
+        mHead.createEl("th", { text: "启用" });
+        mHead.createEl("th", { text: "操作" });
+
+        const mBody = modelTable.createEl("tbody");
+        const modelsList = Object.values(this.plugin.settings.models);
+
+        if (modelsList.length > 0) {
+            modelsList.forEach(model => {
+                const row = mBody.createEl("tr");
+                const modelCell = row.createEl("td");
+                modelCell.createDiv({ text: model.model || model.id, cls: "ink2vault-model-name" });
+                if (model.id !== (model.model || model.id)) {
+                    modelCell.createDiv({ text: model.id, cls: "ink2vault-model-id" });
+                }
+
+                const provider = this.plugin.settings.providers[model.provider];
+                const providerCell = row.createEl("td");
+                providerCell.createDiv({ text: model.provider, cls: "ink2vault-model-name" });
+                providerCell.createDiv({ text: provider?.type || "openai", cls: "ink2vault-model-id" });
+
+                const enableCell = row.createEl("td", { cls: "markdown-next-ai-enable-cell" });
+                const checkbox = enableCell.createEl("input", { type: "checkbox" }) as HTMLInputElement;
+                checkbox.checked = !!model.enabled;
+                checkbox.onchange = async () => {
+                    this.plugin.settings.models[model.id].enabled = checkbox.checked;
+                    await this.plugin.saveSettings();
+                    if (!checkbox.checked && this.plugin.settings.currentModel === model.id) {
+                        const firstEnabled = Object.keys(this.plugin.settings.models).find(id => this.plugin.settings.models[id].enabled);
+                        if (firstEnabled) {
+                            this.plugin.settings.currentModel = firstEnabled;
+                            await this.plugin.saveSettings();
+                            this.display();
+                        }
+                    }
+                };
+
+                const mActionsCell = row.createEl("td", { cls: "markdown-next-ai-actions-cell" });
+                const providerBtn = mActionsCell.createEl("button", { text: "API", attr: { title: "编辑该模型使用的供应商" } });
+                providerBtn.onclick = () => {
+                    if (!this.plugin.settings.providers[model.provider]) {
+                        new Notice(`供应商不存在：${model.provider}`);
+                        return;
+                    }
+                    this.showEditProviderModal(model.provider);
+                };
+                const editBtn = mActionsCell.createEl("button", { text: "模型", attr: { title: "编辑模型参数" } });
+                editBtn.onclick = () => this.showEditModelModal(model.id);
+                const deleteBtn = mActionsCell.createEl("button", { text: "删除", attr: { title: "删除模型配置" } });
+                deleteBtn.onclick = async () => {
+                    if (confirm(`确定要删除模型 "${model.name}" ？`)) {
+                        if (this.plugin.settings.currentModel === model.id) {
+                            const otherEnabled = Object.keys(this.plugin.settings.models).find(id => id !== model.id && this.plugin.settings.models[id].enabled);
+                            this.plugin.settings.currentModel = otherEnabled || "";
+                        }
+                        delete this.plugin.settings.models[model.id];
+                        await this.plugin.saveSettings();
+                        this.display();
+                    }
+                };
+            });
+        } else {
+            const emptyRow = mBody.createEl("tr");
+            emptyRow.createEl("td", {
+                text: "暂无模型，点击上方按钮添加",
+                attr: { colspan: "4", style: "text-align: center; color: var(--text-muted); font-style: italic; padding: 20px;" }
+            });
+        }
     }
 
     private updateApiKeyDesc(setting: Setting, type: string) {
@@ -871,12 +821,44 @@ export class SimpleSettingsTab extends PluginSettingTab {
         }
     }
 
+    private getPdfQualityPreset(): "fast" | "balanced" | "high" {
+        const quality = this.plugin.settings.advancedSettings?.pdfQuality ?? 0.8;
+        const scale = this.plugin.settings.advancedSettings?.pdfScale ?? 1.5;
+        if (quality <= 0.65 && scale <= 1.3) return "fast";
+        if (quality >= 0.88 && scale >= 1.9) return "high";
+        return "balanced";
+    }
+
     private addPdfSettings(containerEl: HTMLElement) {
-        containerEl.createEl("h3", { text: "📄 PDF 处理" });
+        containerEl.createEl("h3", { text: "PDF 处理" });
+
+        new Setting(containerEl)
+            .setName("质量预设")
+            .setDesc("快速省 token，高清适合小字或扫描件。")
+            .addDropdown(dropdown => dropdown
+                .addOption("fast", "快速")
+                .addOption("balanced", "平衡")
+                .addOption("high", "高清")
+                .setValue(this.getPdfQualityPreset())
+                .onChange(async (value) => {
+                    if (value === "fast") {
+                        this.plugin.settings.advancedSettings.pdfQuality = 0.6;
+                        this.plugin.settings.advancedSettings.pdfScale = 1.2;
+                    } else if (value === "high") {
+                        this.plugin.settings.advancedSettings.pdfQuality = 0.9;
+                        this.plugin.settings.advancedSettings.pdfScale = 2.0;
+                    } else {
+                        this.plugin.settings.advancedSettings.pdfQuality = 0.8;
+                        this.plugin.settings.advancedSettings.pdfScale = 1.5;
+                    }
+                    await this.plugin.saveSettings();
+                    this.display();
+                })
+            );
 
         new Setting(containerEl)
             .setName("图片质量")
-            .setDesc("PDF 转图片的质量（0.1-1.0，越高越清晰但文件越大）")
+            .setDesc("越高越清晰，也会增加图片体积。")
             .addSlider(slider => slider
                 .setLimits(0.1, 1.0, 0.1)
                 .setValue(this.plugin.settings.advancedSettings?.pdfQuality || 0.8)
@@ -889,7 +871,7 @@ export class SimpleSettingsTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName("图片缩放")
-            .setDesc("PDF 转图片的缩放比例（1.0-2.0，越高越清晰）")
+            .setDesc("放大 PDF 页面后再识别。")
             .addSlider(slider => slider
                 .setLimits(1.0, 2.0, 0.1)
                 .setValue(this.plugin.settings.advancedSettings?.pdfScale || 1.5)
@@ -902,7 +884,7 @@ export class SimpleSettingsTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName("每次提交图片数量")
-            .setDesc("PDF 转换时批量提交给 AI 的图片张数（建议 1-5）")
+            .setDesc("每批提交给 AI 的页数，建议 1-5。")
             .addText(text => text
                 .setPlaceholder("1")
                 .setValue(String(this.plugin.settings.advancedSettings?.imagesPerRequest ?? 1))
@@ -921,11 +903,11 @@ export class SimpleSettingsTab extends PluginSettingTab {
     }
 
     private addOutputSettings(containerEl: HTMLElement) {
-        containerEl.createEl("h3", { text: "💾 输出设置" });
+        containerEl.createEl("h3", { text: "转换行为与输出" });
 
         const outputSetting = new Setting(containerEl)
             .setName("输出目录")
-            .setDesc("转换后的文件保存位置（点击选择）");
+            .setDesc("另存为 Markdown 时的保存位置。");
 
         outputSetting.addText(text => {
             text.setPlaceholder("Handwriting Converted");
@@ -943,7 +925,7 @@ export class SimpleSettingsTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName("保留原文件名")
-            .setDesc("使用原始 PDF 文件名")
+            .setDesc("使用原文件名作为 Markdown 文件名。")
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.outputSettings.keepOriginalName)
                 .onChange(async (value) => {
@@ -954,7 +936,7 @@ export class SimpleSettingsTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName("转换后自动打开")
-            .setDesc("转换完成后立即打开文件")
+            .setDesc("完成后打开生成的 Markdown。")
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.outputSettings.autoOpen)
                 .onChange(async (value) => {
@@ -964,30 +946,8 @@ export class SimpleSettingsTab extends PluginSettingTab {
             );
 
         new Setting(containerEl)
-            .setName("插入分割线")
-            .setDesc("在 PDF 多批次输出之间插入 --- 分割线")
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.outputSettings.insertPageSeparator ?? false)
-                .onChange(async (value) => {
-                    this.plugin.settings.outputSettings.insertPageSeparator = value;
-                    await this.plugin.saveSettings();
-                })
-            );
-
-        new Setting(containerEl)
-            .setName("移除 Page 标题")
-            .setDesc("在 AI 输出中移除 # Page N / ## Page N 标题行")
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.outputSettings.removePageHeadings ?? false)
-                .onChange(async (value) => {
-                    this.plugin.settings.outputSettings.removePageHeadings = value;
-                    await this.plugin.saveSettings();
-                })
-            );
-
-        new Setting(containerEl)
             .setName("文本中图片转换方式")
-            .setDesc("在笔记正文中右键图片转换时，选择插入到图片下方或替换原图片链接")
+            .setDesc("正文图片右键转换后的写入方式。")
             .addDropdown(dropdown => dropdown
                 .addOption("insert", "插入到图片下方")
                 .addOption("replace", "替换图片链接")
@@ -1000,7 +960,7 @@ export class SimpleSettingsTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName("标题下方插入内容")
-            .setDesc("在 Markdown 标题下方插入的自定义内容（支持 Markdown 格式，留空则不插入）")
+            .setDesc("可选。生成文件标题下方插入固定内容。")
             .addTextArea(text => {
                 text.setPlaceholder("例如：> 来自 PDF 的转换内容\\n或：[返回目录](#目录)")
                     .setValue(this.plugin.settings.outputSettings.contentAfterTitle || "")
@@ -1026,7 +986,7 @@ export class SimpleSettingsTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName("自定义提示词")
-            .setDesc("告诉 AI 如何转换你的笔记（留空使用默认）")
+            .setDesc("留空使用默认识别提示词。")
             .addTextArea(text => {
                 text.setPlaceholder(defaultPrompt)
                     .setValue(this.plugin.settings.conversionPrompt || "")
@@ -1056,6 +1016,30 @@ export class SimpleSettingsTab extends PluginSettingTab {
         });
 
         const contentDiv = detailsEl.createDiv({ attr: { style: "margin-top: 15px;" } });
+
+        this.addPromptSettings(contentDiv);
+
+        new Setting(contentDiv)
+            .setName("插入分割线")
+            .setDesc("在 PDF 多批次输出之间插入 --- 分割线")
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.outputSettings.insertPageSeparator ?? false)
+                .onChange(async (value) => {
+                    this.plugin.settings.outputSettings.insertPageSeparator = value;
+                    await this.plugin.saveSettings();
+                })
+            );
+
+        new Setting(contentDiv)
+            .setName("移除 Page 标题")
+            .setDesc("在 AI 输出中移除 # Page N / ## Page N 标题行")
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.outputSettings.removePageHeadings ?? false)
+                .onChange(async (value) => {
+                    this.plugin.settings.outputSettings.removePageHeadings = value;
+                    await this.plugin.saveSettings();
+                })
+            );
 
         new Setting(contentDiv)
             .setName("请求超时（秒）")
@@ -1114,17 +1098,6 @@ export class SimpleSettingsTab extends PluginSettingTab {
                         this.plugin.settings.advancedSettings.retryAttempts = n;
                         await this.plugin.saveSettings();
                     }
-                })
-            );
-
-        new Setting(contentDiv)
-            .setName("转换时自动最小化进度窗")
-            .setDesc("开始转换后自动将进度窗口最小化为右下角浮动面板，避免遮挡界面")
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.advancedSettings?.autoMinimizeProgress ?? false)
-                .onChange(async (value) => {
-                    this.plugin.settings.advancedSettings.autoMinimizeProgress = value;
-                    await this.plugin.saveSettings();
                 })
             );
 

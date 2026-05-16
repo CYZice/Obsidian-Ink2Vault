@@ -34,8 +34,13 @@ export class ProgressModal extends Modal {
     constructor(app: App) {
         super(app);
         this.modalEl.addClass("ink2vault-progress-modal");
-        this.titleEl.setText("正在转换 PDF → Markdown");
+        this.titleEl.setText("转换进度");
         this.titleElRef = this.titleEl;
+    }
+
+    open(): void {
+        super.open();
+        setTimeout(() => this.minimize(), 0);
     }
 
     onOpen() {
@@ -47,7 +52,7 @@ export class ProgressModal extends Modal {
         });
 
         // PDF 渲染进度
-        container.createEl("h4", { text: "PDF 渲染进度" });
+        container.createEl("h4", { text: "文件处理进度" });
         const renderBar = container.createDiv({
             attr: { style: "height: 10px; background: var(--background-modifier-border); border-radius: 6px; overflow: hidden;" }
         });
@@ -102,7 +107,7 @@ export class ProgressModal extends Modal {
         const pct = Math.min(100, Math.max(0, (donePages / total) * 100));
         // 更新模态窗口进度条
         if (this.renderBarEl) this.renderBarEl.style.width = pct.toFixed(2) + "%";
-        if (this.renderTextEl) this.renderTextEl.setText(`已渲染 ${donePages}/${this.totalPages} 页`);
+        if (this.renderTextEl) this.renderTextEl.setText(`已处理 ${donePages}/${this.totalPages}`);
         // 同步更新浮动面板进度条
         if (this.overlayRenderBarEl) this.overlayRenderBarEl.style.width = pct.toFixed(2) + "%";
     }
@@ -139,6 +144,9 @@ export class ProgressModal extends Modal {
         onRetrySingle?: (pageNum: number) => Promise<void> | void;
         onClose?: () => Promise<void> | void;
     }) {
+        if (this.isMinimized) {
+            this.restore();
+        }
         if (!this.actionsEl) return;
         // 禁用取消按钮
         if (this.cancelBtnEl) {
@@ -181,10 +189,10 @@ export class ProgressModal extends Modal {
             "position:fixed; right:16px; bottom:16px; z-index:9999;" +
             "background: var(--background-primary); box-shadow: var(--shadow-s);" +
             "border: 1px solid var(--background-modifier-border); border-radius: 8px;" +
-            "padding: 10px; width: 280px;"
+            "padding: 10px; width: 240px;"
         );
 
-        const title = this.overlayEl.createEl("div", { text: "PDF → Markdown 进度", attr: { style: "font-weight:600; margin-bottom:6px;" } });
+        this.overlayEl.createEl("div", { text: "转换进度", attr: { style: "font-weight:600; margin-bottom:6px;" } });
 
         // 渲染进度条
         const rLabel = this.overlayEl.createEl("div", { text: "渲染", attr: { style: "font-size:12px; opacity:.8;" } });
@@ -206,7 +214,7 @@ export class ProgressModal extends Modal {
             this.setStatus("已请求取消，正在停止...");
         };
         // 还原按钮
-        const restoreBtn = row.createEl("button", { text: "还原" }) as HTMLButtonElement;
+        const restoreBtn = row.createEl("button", { text: "详情" }) as HTMLButtonElement;
         restoreBtn.onclick = () => this.restore();
 
         document.body.appendChild(this.overlayEl);
